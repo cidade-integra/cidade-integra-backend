@@ -1,4 +1,6 @@
-﻿using CidadeIntegra.Infra.Data.Context;
+﻿using CidadeIntegra.Application.Interfaces.Repositories;
+using CidadeIntegra.Application.Interfaces.Services;
+using CidadeIntegra.Infra.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +15,12 @@ namespace CidadeIntegra.Infra.IoC
             services.AddDbContext<AppDbContext>(options =>
              options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"
             ), b => b.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IReportRepository, ReportRepository>();
+
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IReportService, ReportService>();
 
             return services;
         }
