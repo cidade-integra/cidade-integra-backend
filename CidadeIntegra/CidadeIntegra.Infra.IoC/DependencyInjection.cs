@@ -1,6 +1,8 @@
 ﻿using CidadeIntegra.Application.Interfaces.Repositories;
 using CidadeIntegra.Application.Interfaces.Services;
+using CidadeIntegra.Application.Services;
 using CidadeIntegra.Infra.Data.Context;
+using CidadeIntegra.Infra.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
