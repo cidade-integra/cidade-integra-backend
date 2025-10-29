@@ -7,7 +7,7 @@ namespace CidadeIntegra.Domain.Entities
     public class ReportLocation
     {
         [Key]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
         [ForeignKey(nameof(Report))]
         public Guid ReportId { get; set; }

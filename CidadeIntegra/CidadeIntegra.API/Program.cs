@@ -53,7 +53,6 @@ namespace CidadeIntegra.API
                 {
                     // Título e endpoint da documentação
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cidade Integra API v1");
-                    c.RoutePrefix = string.Empty; // Swagger na raiz (http://localhost:5000/)
                 });
             }
             #endregion
