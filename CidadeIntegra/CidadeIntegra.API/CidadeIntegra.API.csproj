@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CidadeIntegra.Application\CidadeIntegra.Application.csproj" />
+    <ProjectReference Include="..\CidadeIntegra.Infra.IoC\CidadeIntegra.Infra.IoC.csproj" />
   </ItemGroup>
 
 </Project>
