@@ -17,25 +17,25 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
             builder.HasOne(r => r.User)
                    .WithMany(u => u.Reports)
                    .HasForeignKey(r => r.UserId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             // Relacionamento 1:1 com Location
             builder.HasOne(r => r.Location)
                    .WithOne(l => l.Report)
                    .HasForeignKey<ReportLocation>(l => l.ReportId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             // Relacionamento 1:N com Comments
             builder.HasMany(r => r.Comments)
                    .WithOne(c => c.Report)
                    .HasForeignKey(c => c.ReportId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             // Relação N:N (UserSavedReports)
             builder.HasMany(r => r.SavedByUsers)
                    .WithOne(sr => sr.Report)
                    .HasForeignKey(sr => sr.ReportId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             // Propriedades adicionais
             builder.Property(r => r.Category)

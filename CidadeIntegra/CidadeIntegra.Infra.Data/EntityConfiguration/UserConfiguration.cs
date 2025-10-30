@@ -29,17 +29,17 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
             builder.HasMany(u => u.Reports)
                    .WithOne(r => r.User)
                    .HasForeignKey(r => r.UserId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             builder.HasMany(u => u.SavedReports)
                    .WithOne(sr => sr.User)
                    .HasForeignKey(sr => sr.UserId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             builder.HasMany(u => u.Comments)
                    .WithOne(c => c.Author)
                    .HasForeignKey(c => c.AuthorId)
-                   .OnDelete(DeleteBehavior.Restrict);
+                   .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }
