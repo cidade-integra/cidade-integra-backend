@@ -23,6 +23,8 @@ namespace CidadeIntegra.Infra.IoC
 
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IReportService, ReportService>();
+            services.AddScoped<IMigrationService, MigrationService>();
+
 
             return services;
         }
