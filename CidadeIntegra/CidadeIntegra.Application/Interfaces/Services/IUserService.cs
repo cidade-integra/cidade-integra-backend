@@ -6,5 +6,6 @@ namespace CidadeIntegra.Application.Interfaces.Services
     {
         Task<User?> GetByEmailAsync(string email);
         Task<IEnumerable<User>> GetAllAsync();
+        Task CreateAsync(User user);
     }
 }

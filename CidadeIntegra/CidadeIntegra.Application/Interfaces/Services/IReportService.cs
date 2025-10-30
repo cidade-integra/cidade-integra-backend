@@ -5,5 +5,6 @@ namespace CidadeIntegra.Application.Interfaces.Services
     public interface IReportService
     {
         Task<IEnumerable<Report>> GetPendingReportsAsync();
+        Task CreateAsync(Report report);
     }
 }

@@ -1,6 +1,7 @@
 using CidadeIntegra.Infra.Data.Firebase;
 using Google.Cloud.Firestore;
 using Microsoft.OpenApi.Models;
+using CidadeIntegra.Infra.IoC;
 
 namespace CidadeIntegra.API
 {
@@ -36,11 +37,25 @@ namespace CidadeIntegra.API
             });
             #endregion
 
+            #region Configuração CORS
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("OpenCors", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+            #endregion
+
+            // Add services to the container.
+            builder.Services.AddInfrastructureAPI(builder.Configuration);
+
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-
 
             var app = builder.Build();
 
@@ -53,7 +68,6 @@ namespace CidadeIntegra.API
                 {
                     // Título e endpoint da documentação
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cidade Integra API v1");
-                    c.RoutePrefix = string.Empty; // Swagger na raiz (http://localhost:5000/)
                 });
             }
             #endregion

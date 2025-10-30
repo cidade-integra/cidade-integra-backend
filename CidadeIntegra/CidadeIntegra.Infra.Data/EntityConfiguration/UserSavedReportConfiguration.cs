@@ -15,12 +15,12 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
             builder.HasOne(sr => sr.User)
                    .WithMany(u => u.SavedReports)
                    .HasForeignKey(sr => sr.UserId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
 
             builder.HasOne(sr => sr.Report)
                    .WithMany(r => r.SavedByUsers)
                    .HasForeignKey(sr => sr.ReportId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }
