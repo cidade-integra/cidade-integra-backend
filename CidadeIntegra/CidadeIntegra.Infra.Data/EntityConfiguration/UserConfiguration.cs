@@ -12,6 +12,9 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
 
             builder.HasKey(u => u.Id);
 
+            builder.HasIndex(r => r.FirebaseId).IsUnique();
+            builder.Property(r => r.FirebaseId).HasMaxLength(100).IsRequired();
+
             builder.Property(u => u.DisplayName)
                    .IsRequired()
                    .HasMaxLength(100);

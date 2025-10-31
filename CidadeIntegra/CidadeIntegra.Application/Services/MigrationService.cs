@@ -3,11 +3,6 @@ using CidadeIntegra.Domain.Entities;
 using Google.Cloud.Firestore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CidadeIntegra.Application.Services
 {
@@ -17,8 +12,6 @@ namespace CidadeIntegra.Application.Services
         private readonly IReportService _reportService;
         private readonly ILogger<MigrationService> _logger;
         private readonly FirestoreDb _firestore;
-
-        private readonly Dictionary<string, Guid> _userMap = new();
 
         public MigrationService(
             IUserService userService,
@@ -52,42 +45,41 @@ namespace CidadeIntegra.Application.Services
         {
             _logger.LogInformation("Migrando coleção: users...");
 
-            var usersSnapshot = await _firestore.Collection("users").GetSnapshotAsync();
+            var usersCollection = _firestore.Collection("users");
+            var snapshot = await usersCollection.GetSnapshotAsync();
 
-            foreach (var doc in usersSnapshot.Documents)
+            foreach (var doc in snapshot.Documents)
             {
                 var data = doc.ToDictionary();
-                var firestoreUid = doc.Id;
+                var firebaseId = doc.Id;
 
-                var userGuid = Guid.NewGuid();
-                _userMap[firestoreUid] = userGuid;
+                var existingUser = await _userService.GetByFirebaseIdAsync(firebaseId);
 
-                var user = new User
-                {
-                    Id = userGuid,
-                    DisplayName = data.GetValueOrDefault("displayName", string.Empty)?.ToString() ?? "",
-                    Email = data.GetValueOrDefault("email", string.Empty)?.ToString() ?? "",
-                    PhotoUrl = data.GetValueOrDefault("photoURL", string.Empty)?.ToString() ?? "",
-                    Region = data.GetValueOrDefault("region", string.Empty)?.ToString() ?? "",
-                    Role = data.GetValueOrDefault("role", "user")?.ToString() ?? "user",
-                    Status = data.GetValueOrDefault("status", "active")?.ToString() ?? "active",
-                    Score = Convert.ToInt32(data.GetValueOrDefault("score", 0)),
-                    ReportCount = Convert.ToInt32(data.GetValueOrDefault("reportCount", 0)),
-                    Verified = Convert.ToBoolean(data.GetValueOrDefault("verified", false)),
-                    CreatedAt = ParseDate(data.GetValueOrDefault("createdAt")),
-                    LastLoginAt = ParseDate(data.GetValueOrDefault("lastLoginAt"))
-                };
+                var user = existingUser ?? new User { Id = existingUser?.Id ?? Guid.NewGuid() };
 
-                // Evita duplicação por e-mail
-                var existing = await _userService.GetByEmailAsync(user.Email);
-                if (existing == null)
+                // Atualiza ou preenche propriedades
+                user.FirebaseId = firebaseId;
+                user.DisplayName = data.GetValueOrDefault("displayName", string.Empty)?.ToString() ?? "";
+                user.Email = data.GetValueOrDefault("email", string.Empty)?.ToString() ?? "";
+                user.PhotoUrl = data.GetValueOrDefault("photoURL", string.Empty)?.ToString() ?? "";
+                user.Region = data.GetValueOrDefault("region", string.Empty)?.ToString() ?? "";
+                user.Role = data.GetValueOrDefault("role", "user")?.ToString() ?? "user";
+                user.Status = data.GetValueOrDefault("status", "active")?.ToString() ?? "active";
+                user.Score = Convert.ToInt32(data.GetValueOrDefault("score", 0));
+                user.ReportCount = Convert.ToInt32(data.GetValueOrDefault("reportCount", 0));
+                user.Verified = Convert.ToBoolean(data.GetValueOrDefault("verified", false));
+                user.CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
+                user.LastLoginAt = ParseDate(data.GetValueOrDefault("lastLoginAt"));
+
+                if (existingUser == null)
                 {
                     await _userService.CreateAsync(user);
-                    _logger.LogInformation($"Usuário migrado: {user.DisplayName}");
+                    _logger.LogInformation($"Usuário criado: {user.DisplayName}");
                 }
                 else
                 {
-                    _userMap[firestoreUid] = existing.Id;
+                    await _userService.UpdateAsync(user);
+                    _logger.LogInformation($"Usuário atualizado: {user.DisplayName}");
                 }
             }
 
@@ -100,50 +92,50 @@ namespace CidadeIntegra.Application.Services
         {
             _logger.LogInformation("Migrando coleção: reports...");
 
-            var reportsSnapshot = await _firestore.Collection("reports").GetSnapshotAsync();
+            var reportsCollection = _firestore.Collection("reports");
+            var snapshot = await reportsCollection.GetSnapshotAsync();
 
-            foreach (var doc in reportsSnapshot.Documents)
+            foreach (var doc in snapshot.Documents)
             {
                 var data = doc.ToDictionary();
-                var firestoreUserId = data.GetValueOrDefault("userId", null)?.ToString();
+                var firebaseId = doc.Id;
 
-                // Relaciona com o usuário correspondente
-                if (firestoreUserId == null || !_userMap.ContainsKey(firestoreUserId))
-                {
-                    _logger.LogWarning($"Usuário não encontrado para report {doc.Id}, ignorando...");
-                    continue;
-                }
+                var existingReport = await _reportService.GetByFirebaseIdAsync(firebaseId);
 
-                var report = new Report
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = _userMap[firestoreUserId],
-                    Category = data.GetValueOrDefault("category", "outros")?.ToString() ?? "outros",
-                    Title = data.GetValueOrDefault("title", string.Empty)?.ToString() ?? "",
-                    Description = data.GetValueOrDefault("description", string.Empty)?.ToString() ?? "",
-                    Status = data.GetValueOrDefault("status", "pending")?.ToString() ?? "pending",
-                    IsAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", false)),
-                    ImageUrl1 = ExtractFirstImageUrl(data),
-                    CreatedAt = ParseDate(data.GetValueOrDefault("createdAt")),
-                    UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt")),
-                    ResolvedAt = ParseDate(data.GetValueOrDefault("resolvedAt"))
-                };
+                var report = existingReport ?? new Report { Id = existingReport?.Id ?? Guid.NewGuid() };
 
-                // localização
+                report.FirebaseId = firebaseId;
+                report.Category = data.GetValueOrDefault("category", "outros")?.ToString() ?? "outros";
+                report.Title = data.GetValueOrDefault("title", string.Empty)?.ToString() ?? "";
+                report.Description = data.GetValueOrDefault("description", string.Empty)?.ToString() ?? "";
+                report.Status = data.GetValueOrDefault("status", "pending")?.ToString() ?? "pending";
+                report.IsAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", false));
+                report.ImageUrl1 = ExtractFirstImageUrl(data);
+                report.CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
+                report.UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
+                report.ResolvedAt = ParseDate(data.GetValueOrDefault("resolvedAt"));
+
+                // Localização
                 if (data.TryGetValue("location", out var locationObj) && locationObj is Dictionary<string, object> loc)
                 {
-                    report.Location = new ReportLocation
-                    {
-                        Id = Guid.NewGuid(),
-                        Address = loc.GetValueOrDefault("address", "")?.ToString() ?? "",
-                        Latitude = Convert.ToDecimal(loc.GetValueOrDefault("latitude", 0)),
-                        Longitude = Convert.ToDecimal(loc.GetValueOrDefault("longitude", 0)),
-                        PostalCode = loc.GetValueOrDefault("postalCode", "")?.ToString() ?? ""
-                    };
+                    report.Location ??= new ReportLocation { Id = Guid.NewGuid() };
+
+                    report.Location.Address = loc.GetValueOrDefault("address", "")?.ToString() ?? "";
+                    report.Location.Latitude = Convert.ToDecimal(loc.GetValueOrDefault("latitude", 0));
+                    report.Location.Longitude = Convert.ToDecimal(loc.GetValueOrDefault("longitude", 0));
+                    report.Location.PostalCode = loc.GetValueOrDefault("postalCode", "")?.ToString() ?? "";
                 }
 
-                await _reportService.CreateAsync(report);
-                _logger.LogInformation($"Report migrado: {report.Title}");
+                if (existingReport == null)
+                {
+                    await _reportService.CreateAsync(report);
+                    _logger.LogInformation($"Report criado: {report.Title}");
+                }
+                else
+                {
+                    await _reportService.UpdateAsync(report);
+                    _logger.LogInformation($"Report atualizado: {report.Title}");
+                }
             }
 
             _logger.LogInformation("Migração de reports concluída.");

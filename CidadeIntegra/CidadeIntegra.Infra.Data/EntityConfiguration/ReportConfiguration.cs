@@ -13,6 +13,10 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
             // Chave primária
             builder.HasKey(r => r.Id);
 
+            // Firebase ID
+            builder.HasIndex(u => u.FirebaseId).IsUnique();
+            builder.Property(u => u.FirebaseId).HasMaxLength(100).IsRequired();
+
             // Relacionamento com User
             builder.HasOne(r => r.User)
                    .WithMany(u => u.Reports)

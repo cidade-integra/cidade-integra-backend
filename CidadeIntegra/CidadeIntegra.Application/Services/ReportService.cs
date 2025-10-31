@@ -23,5 +23,12 @@ namespace CidadeIntegra.Application.Services
             await _reportRepository.AddAsync(report);
             await _reportRepository.SaveChangesAsync();
         }
+
+        public async Task<Report?> GetByFirebaseIdAsync(string firebaseId)
+            => await _reportRepository.GetByFirebaseIdAsync(firebaseId);
+
+        public async Task UpdateAsync(Report report)
+            => await _reportRepository.UpdateAsync(report);
+
     }
 }

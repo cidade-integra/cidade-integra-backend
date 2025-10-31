@@ -9,6 +9,9 @@ namespace CidadeIntegra.Domain.Entities
         [Key]
         public Guid Id { get; set; }
 
+        [MaxLength(100)]
+        public string FirebaseId { get; set; } = string.Empty;
+
         [ForeignKey(nameof(User))]
         public Guid UserId { get; set; }
 
