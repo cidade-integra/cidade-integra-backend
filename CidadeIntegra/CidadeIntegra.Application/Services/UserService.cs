@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using CidadeIntegra.Application.Interfaces.Repositories;
+﻿using CidadeIntegra.Application.Interfaces.Repositories;
 using CidadeIntegra.Application.Interfaces.Services;
 using CidadeIntegra.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace CidadeIntegra.Application.Services
 {
@@ -48,7 +45,7 @@ namespace CidadeIntegra.Application.Services
                 var users = await _userRepository.GetAllAsync();
                 _logger.LogInformation("Busca concluída. Total de usuários encontrados: {Count}", users?.Count() ?? 0);
 
-                return users;
+                return users!;
             }
             catch (Exception ex)
             {

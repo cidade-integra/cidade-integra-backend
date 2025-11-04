@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using CidadeIntegra.Application.Interfaces.Repositories;
+﻿using CidadeIntegra.Application.Interfaces.Repositories;
 using CidadeIntegra.Application.Interfaces.Services;
 using CidadeIntegra.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace CidadeIntegra.Application.Services
 {
