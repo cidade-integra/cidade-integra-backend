@@ -14,6 +14,7 @@ namespace CidadeIntegra.Infra.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FirebaseId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     DisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
                     PhotoUrl = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
@@ -36,6 +37,7 @@ namespace CidadeIntegra.Infra.Data.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FirebaseId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Category = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Title = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
@@ -146,9 +148,21 @@ namespace CidadeIntegra.Infra.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Reports_FirebaseId",
+                table: "Reports",
+                column: "FirebaseId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Reports_UserId",
                 table: "Reports",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_FirebaseId",
+                table: "Users",
+                column: "FirebaseId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserSavedReports_ReportId",

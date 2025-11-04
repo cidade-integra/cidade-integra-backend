@@ -84,6 +84,11 @@ namespace CidadeIntegra.Infra.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("FirebaseId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("ImageUrl1")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -115,6 +120,9 @@ namespace CidadeIntegra.Infra.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FirebaseId")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -175,6 +183,11 @@ namespace CidadeIntegra.Infra.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("FirebaseId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTimeOffset>("LastLoginAt")
                         .HasColumnType("datetimeoffset");
 
@@ -206,6 +219,9 @@ namespace CidadeIntegra.Infra.Data.Migrations
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FirebaseId")
+                        .IsUnique();
 
                     b.ToTable("Users", (string)null);
                 });
