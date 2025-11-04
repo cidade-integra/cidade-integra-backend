@@ -13,6 +13,9 @@ namespace CidadeIntegra.Application.Services
         private readonly ILogger<MigrationService> _logger;
         private readonly FirestoreDb _firestore;
 
+        // Mapeia FirebaseId -> Guid do usuário salvo no SQL
+        private readonly Dictionary<string, Guid> _userMap = new();
+
         public MigrationService(
             IUserService userService,
             IReportService reportService,
@@ -57,7 +60,6 @@ namespace CidadeIntegra.Application.Services
 
                 var user = existingUser ?? new User { Id = existingUser?.Id ?? Guid.NewGuid() };
 
-                // Atualiza ou preenche propriedades
                 user.FirebaseId = firebaseId;
                 user.DisplayName = data.GetValueOrDefault("displayName", string.Empty)?.ToString() ?? "";
                 user.Email = data.GetValueOrDefault("email", string.Empty)?.ToString() ?? "";
@@ -81,6 +83,9 @@ namespace CidadeIntegra.Application.Services
                     await _userService.UpdateAsync(user);
                     _logger.LogInformation($"Usuário atualizado: {user.DisplayName}");
                 }
+
+                // Mapeia FirebaseId para Guid para usar nos reports
+                _userMap[firebaseId] = user.Id;
             }
 
             _logger.LogInformation("Migração de usuários concluída.");
@@ -114,6 +119,18 @@ namespace CidadeIntegra.Application.Services
                 report.CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
                 report.UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
                 report.ResolvedAt = ParseDate(data.GetValueOrDefault("resolvedAt"));
+
+                // Associa usuário corretamente via _userMap
+                var userIdFirestore = data.GetValueOrDefault("userId", null)?.ToString();
+                if (userIdFirestore != null && _userMap.TryGetValue(userIdFirestore, out var userId))
+                {
+                    report.UserId = userId;
+                }
+                else
+                {
+                    _logger.LogWarning($"Usuário não encontrado para o report {report.Title}");
+                    continue; // ignora report sem usuário válido
+                }
 
                 // Localização
                 if (data.TryGetValue("location", out var locationObj) && locationObj is Dictionary<string, object> loc)
