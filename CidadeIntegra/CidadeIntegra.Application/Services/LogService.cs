@@ -1,18 +1,18 @@
 ﻿using CidadeIntegra.Application.Interfaces.Services;
 using CidadeIntegra.Domain.Entities;
-using CidadeIntegra.Infra.Data.Context;
+using CidadeIntegra.Infra.Data.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace CidadeIntegra.Application.Services
 {
     public class LogService : ILogService
     {
-        private readonly AppDbContext _context;
+        private readonly ILogRepository _repository;
         private readonly ILogger<LogService> _logger;
 
-        public LogService(AppDbContext context, ILogger<LogService> logger)
+        public LogService(ILogRepository repository, ILogger<LogService> logger)
         {
-            _context = context;
+            _repository = repository;
             _logger = logger;
         }
 
@@ -23,17 +23,14 @@ namespace CidadeIntegra.Application.Services
 
             try
             {
-                _context.Logs.Add(log);
-                await _context.SaveChangesAsync();
+                await _repository.AddAsync(log);
+                await _repository.SaveChangesAsync();
 
                 _logger.LogInformation("Log gravado com sucesso: {Message}", log.Message);
             }
             catch (Exception ex)
             {
-                // loga o erro sem interromper o fluxo principal
                 _logger.LogError(ex, "Erro ao gravar log no banco. Nível: {Level}, Mensagem: {Message}", log.Level, log.Message);
-
-                // tentar salvar em arquivo ou console alternativo
                 Console.WriteLine($"Falha ao gravar log no banco: {log.Message}");
             }
         }
