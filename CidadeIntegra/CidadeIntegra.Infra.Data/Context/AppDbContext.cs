@@ -15,6 +15,7 @@ namespace CidadeIntegra.Infra.Data.Context
         public DbSet<ReportLocation> ReportLocations => Set<ReportLocation>();
         public DbSet<Comment> Comments => Set<Comment>();
         public DbSet<UserSavedReport> UserSavedReports => Set<UserSavedReport>();
+        public DbSet<Log> Logs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -2,6 +2,7 @@ using CidadeIntegra.Infra.Data.Firebase;
 using Google.Cloud.Firestore;
 using Microsoft.OpenApi.Models;
 using CidadeIntegra.Infra.IoC;
+using CidadeIntegra.API.Middlewares;
 
 namespace CidadeIntegra.API
 {
@@ -23,7 +24,7 @@ namespace CidadeIntegra.API
             builder.Services.AddSingleton(firestore);
             #endregion
 
-            #region Configurãções Swagger
+            #region Configurações Swagger
             // Configura o Swagger
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
@@ -49,6 +50,13 @@ namespace CidadeIntegra.API
             });
             #endregion
 
+            #region Configuração Logging Global
+            builder.Logging.ClearProviders(); // Remove qualquer configuração padrão de log
+            builder.Logging.AddConsole(); // Envia todos os logs para o console
+            builder.Logging.AddDebug(); // Envia logs para o Visual Studio Debug Output
+            builder.Logging.SetMinimumLevel(LogLevel.Information); // Define o nível mínimo de log a ser registrado
+            #endregion
+
             // Add services to the container.
             builder.Services.AddInfrastructureAPI(builder.Configuration);
 
@@ -70,6 +78,10 @@ namespace CidadeIntegra.API
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cidade Integra API v1");
                 });
             }
+            #endregion
+
+            #region Configuração Middleware
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
             #endregion
 
             app.UseHttpsRedirection();
