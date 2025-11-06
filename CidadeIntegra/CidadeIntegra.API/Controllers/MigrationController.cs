@@ -1,8 +1,12 @@
-﻿using CidadeIntegra.Application.Interfaces.Services;
+﻿using CidadeIntegra.API.Attributes;
+using CidadeIntegra.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CidadeIntegra.API.Controllers
 {
+    [Route("api/[controller]")]
+    [ApiController]
+    [ApiKeyAuthorize]
     public class MigrationController : ControllerBase
     {
         private readonly IMigrationService _migrationService;
@@ -15,6 +19,7 @@ namespace CidadeIntegra.API.Controllers
         }
 
         [HttpPost("run")]
+        [ApiKeyAuthorize]
         public async Task<IActionResult> RunMigration()
         {
             try
