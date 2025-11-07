@@ -1,10 +1,12 @@
-﻿using Google.Cloud.Firestore;
+﻿using CidadeIntegra.API.Attributes;
+using Google.Cloud.Firestore;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CidadeIntegra.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [ApiKeyAuthorize]
     public class FirebaseTestController : ControllerBase
     {
         private readonly FirestoreDb _firestore;
@@ -15,6 +17,7 @@ namespace CidadeIntegra.API.Controllers
         }
 
         [HttpGet("test")]
+        [ApiKeyAuthorize]
         public async Task<IActionResult> TestConnection()
         {
             // Cria documento de teste
