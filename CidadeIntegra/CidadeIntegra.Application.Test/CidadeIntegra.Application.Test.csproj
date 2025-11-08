@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CidadeIntegra.Domain\CidadeIntegra.Domain.csproj" />
+    <ProjectReference Include="..\CidadeIntegra.Application\CidadeIntegra.Application.csproj" />
   </ItemGroup>
 
 </Project>

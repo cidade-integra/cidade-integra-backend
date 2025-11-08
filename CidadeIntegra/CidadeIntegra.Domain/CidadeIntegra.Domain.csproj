@@ -6,8 +6,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\CidadeIntegra.Domain.Test\CidadeIntegra.Domain.Test.csproj" />
-  </ItemGroup>
-
 </Project>

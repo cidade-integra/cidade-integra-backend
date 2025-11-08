@@ -21,8 +21,4 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\CidadeIntegra.Domain\CidadeIntegra.Domain.csproj" />
-  </ItemGroup>
-
 </Project>
