@@ -103,5 +103,28 @@ namespace CidadeIntegra.Domain.Entities
             return DateTimeOffset.UtcNow;
         }
         #endregion
+
+        #region Validation
+        public void Validate()
+        {
+            if (string.IsNullOrWhiteSpace(DisplayName))
+                throw new ValidationException("DisplayName is required.");
+
+            if (string.IsNullOrWhiteSpace(Email) || !new EmailAddressAttribute().IsValid(Email))
+                throw new ValidationException("Email is required and must be valid.");
+
+            if (string.IsNullOrWhiteSpace(Role))
+                throw new ValidationException("Role is required.");
+
+            if (string.IsNullOrWhiteSpace(Status))
+                throw new ValidationException("Status is required.");
+
+            if (CreatedAt == default)
+                throw new ValidationException("CreatedAt must be set.");
+
+            if (LastLoginAt == default)
+                LastLoginAt = DateTimeOffset.UtcNow;
+        }
+        #endregion
     }
 }

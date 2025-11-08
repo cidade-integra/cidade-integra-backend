@@ -10,6 +10,7 @@ namespace CidadeIntegra.Application.Services
     {
         private readonly IUserService _userService;
         private readonly IReportService _reportService;
+        private readonly ICommentService _commentService;
         private readonly ILogService _logService;
         private readonly ILogger<MigrationService> _logger;
         private readonly FirestoreDb _firestore;
@@ -22,7 +23,8 @@ namespace CidadeIntegra.Application.Services
             IReportService reportService,
             ILogService logService,
             ILogger<MigrationService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ICommentService commentService)
         {
             _userService = userService;
             _reportService = reportService;
@@ -34,6 +36,7 @@ namespace CidadeIntegra.Application.Services
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
 
             _firestore = FirestoreDb.Create(projectId);
+            _commentService = commentService;
         }
 
         public async Task RunMigrationAsync()
@@ -122,6 +125,7 @@ namespace CidadeIntegra.Application.Services
             int createdCount = 0;
             int updatedCount = 0;
             int skippedCount = 0;
+            int commentsCount = 0;
 
             foreach (var doc in snapshot.Documents)
             {
@@ -130,6 +134,7 @@ namespace CidadeIntegra.Application.Services
                     var firebaseId = doc.Id;
                     var existingReport = await _reportService.GetByFirebaseIdAsync(firebaseId);
 
+                    // obtém UserId referente ao usuário do report
                     var userIdFirestore = doc.ContainsField("userId")
                                          ? doc.GetValue<string>("userId")
                                          : null;
@@ -161,17 +166,41 @@ namespace CidadeIntegra.Application.Services
                         _logger.LogInformation($"Report atualizado: {report.Title}");
                         await LogAsync("Information", $"Report atualizado: {report.Title}");
                     }
+
+                    // migração de comentários do report
+                    var commentsCollection = doc.Reference.Collection("comments");
+                    var commentsSnapshot = await commentsCollection.GetSnapshotAsync();
+
+                    foreach (var commentDoc in commentsSnapshot.Documents)
+                    {
+                        try
+                        {
+                            var comment = Comment.FromFirestore(commentDoc, report.Id, _userMap);
+                            await _commentService.CreateAsync(comment);
+                            commentsCount++;
+                            _logger.LogInformation($"Comentário criado para report {report.Title}: {comment.Message}");
+                            await LogAsync("Information", $"Comentário criado para report {report.Title}: {comment.Message}");
+                        }
+                        catch (Exception commentEx)
+                        {
+                            _logger.LogError(commentEx, "Erro ao migrar comentário {CommentId}", commentDoc.Id);
+                            await LogAsync("Error", $"Erro ao migrar comentário {commentDoc.Id}", commentEx);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao migrar report {DocId}", doc.Id);
+                    _logger.LogError(ex, "Erro ao migrar report {ReportId}", doc.Id);
                     await LogAsync("Error", $"Erro ao migrar report {doc.Id}", ex);
                 }
             }
 
-            _logger.LogInformation("Migração de reports concluída. {CreatedCount} criados, {UpdatedCount} atualizados, {SkippedCount} ignorados, total {Total}.",
-                createdCount, updatedCount, skippedCount, createdCount + updatedCount);
-            await LogAsync("Information", $"Migração de reports concluída: {createdCount} criados, {updatedCount} atualizados, {skippedCount} ignorados.");
+            _logger.LogInformation(
+                "Migração de reports concluída. {CreatedCount} criados, {UpdatedCount} atualizados, {SkippedCount} ignorados, {CommentsCount} comentários migrados.",
+                createdCount, updatedCount, skippedCount, commentsCount);
+
+            await LogAsync("Information",
+                $"Migração de reports concluída: {createdCount} criados, {updatedCount} atualizados, {skippedCount} ignorados, {commentsCount} comentários migrados.");
         }
         #endregion
 

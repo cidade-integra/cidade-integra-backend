@@ -136,5 +136,28 @@ namespace CidadeIntegra.Domain.Entities
             return "";
         }
         #endregion
+
+        #region Validation
+        public void Validate()
+        {
+            if (UserId == Guid.Empty)
+                throw new ValidationException("UserId must be provided.");
+
+            if (string.IsNullOrWhiteSpace(Title))
+                throw new ValidationException("Title is required.");
+
+            if (string.IsNullOrWhiteSpace(Description))
+                throw new ValidationException("Description is required.");
+
+            if (string.IsNullOrWhiteSpace(Category))
+                Category = "outros"; // default
+
+            if (CreatedAt == default)
+                CreatedAt = DateTimeOffset.UtcNow;
+
+            if (UpdatedAt == default)
+                UpdatedAt = DateTimeOffset.UtcNow;
+        }
+        #endregion
     }
 }

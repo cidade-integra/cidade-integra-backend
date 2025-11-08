@@ -12,10 +12,6 @@ namespace CidadeIntegra.Infra.Data.EntityConfiguration
 
             builder.HasKey(c => c.Id);
 
-            builder.Property(c => c.AuthorName)
-                   .IsRequired()
-                   .HasMaxLength(100);
-
             builder.Property(c => c.AvatarColor)
                    .IsRequired()
                    .HasMaxLength(50);
