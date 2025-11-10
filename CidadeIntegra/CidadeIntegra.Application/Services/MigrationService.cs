@@ -15,7 +15,7 @@ namespace CidadeIntegra.Application.Services
         private readonly ILogger<MigrationService> _logger;
         private readonly FirestoreDb _firestore;
 
-        // Mapeia FirebaseId -> Guid do usuário salvo no SQL
+        // mapeia FirebaseId -> Guid do usuário salvo no SQL
         private readonly Dictionary<string, Guid> _userMap = new();
 
         public MigrationService(

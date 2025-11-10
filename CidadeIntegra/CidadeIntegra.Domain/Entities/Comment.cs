@@ -36,7 +36,7 @@ namespace CidadeIntegra.Domain.Entities
         #region Construtores
         protected Comment() { } // EF
 
-        private Comment(Guid id, Guid reportId, Guid authorId, string avatarColor, string message, string role, DateTimeOffset createdAt)
+        public Comment(Guid id, Guid reportId, Guid authorId, string avatarColor, string message, string role, DateTimeOffset createdAt)
         {
             ValidateParameters(id, reportId, authorId, avatarColor, message, role, createdAt);
 
