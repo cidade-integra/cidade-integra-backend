@@ -23,15 +23,19 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '6.0.x'
+        working-directory: ./CidadeIntegra
 
       # Passo 3: restaurar pacotes
       - name: Restore dependencies
         run: dotnet restore
+        working-directory: ./CidadeIntegra
 
       # Passo 4: build do projeto
       - name: Build
         run: dotnet build --no-restore --configuration Release
+        working-directory: ./CidadeIntegra
 
       # Passo 5: executar testes
       - name: Run unit tests
         run: dotnet test --no-build --verbosity normal --configuration Release
+        working-directory: ./CidadeIntegra

@@ -1,6 +1,6 @@
-# Cidade Unida - Backend
+# Cidade Integra - Backend
 
-Este repositório contém a implementação do **backend** da plataforma **Cidade Unida**, desenvolvido utilizando **C#**, **ASP.NET 6.0** e seguindo os princípios da **Arquitetura Limpa**. A API fornece os serviços necessários para o funcionamento da plataforma, atualmente incluindo funcionalidade de backup do Banco de Dados e integração com o Firebase. Funcionalidades futuras planejadas incluem autenticação, gerenciamento de denúncias, sistema de gamificação.
+Este repositório contém a implementação do **backend** da plataforma **Cidade Integra**, desenvolvido utilizando **C#**, **ASP.NET 6.0** e seguindo os princípios da **Arquitetura Limpa**. A API fornece os serviços necessários para o funcionamento da plataforma, atualmente incluindo funcionalidade de backup do Banco de Dados e integração com o Firebase. Funcionalidades futuras planejadas incluem autenticação, gerenciamento de denúncias, sistema de gamificação.
  
 ## Funcionalidades
 - Integração com Firebase
