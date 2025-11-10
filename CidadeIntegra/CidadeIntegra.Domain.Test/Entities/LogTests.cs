@@ -1,133 +1,74 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-using CidadeIntegra.Domain.Entities;
+﻿using CidadeIntegra.Domain.Entities;
+using CidadeIntegra.Domain.Validation;
+using FluentAssertions;
 using Xunit;
 
-namespace CidadeIntegra.Domain.Tests.Entities
+namespace CidadeIntegra.Domain.Test.Entities
 {
     public class LogTests
     {
         [Fact]
-        public void Create_ValidData_ShouldCreateLogSuccessfully()
+        public void Create_ValidParameters_ShouldReturnLog()
         {
             // Arrange
-            var log = Log.Create("Info", "Operation completed successfully");
+            var level = "Information";
+            var message = "This is a test log.";
+            var exception = "Exception details";
+
+            // Act
+            var log = Log.Create(level, message, exception);
 
             // Assert
-            Assert.NotEqual(Guid.Empty, log.Id);
-            Assert.Equal("Info", log.Level);
-            Assert.Equal("Operation completed successfully", log.Message);
-            Assert.NotEqual(default, log.TimeStamp);
+            log.Should().NotBeNull();
+            log.Id.Should().NotBeEmpty();
+            log.Level.Should().Be(level);
+            log.Message.Should().Be(message);
+            log.Exception.Should().Be(exception);
+            log.TimeStamp.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
         }
 
         [Theory]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData(null)]
-        public void Validate_InvalidLevel_ShouldThrowValidationException(string invalidLevel)
+        [InlineData("", "Valid message")]
+        [InlineData(" ", "Valid message")]
+        [InlineData("Valid level", "")]
+        [InlineData("Valid level", " ")]
+        public void Create_InvalidParameters_ShouldThrowDomainException(string level, string message)
         {
-            // Arrange
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = invalidLevel ?? string.Empty,
-                Message = "Some message",
-                TimeStamp = DateTimeOffset.UtcNow
-            };
+            // Act
+            Action act = () => Log.Create(level, message);
 
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Level is required.", ex.Message);
-        }
-
-        [Theory]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData(null)]
-        public void Validate_InvalidMessage_ShouldThrowValidationException(string invalidMessage)
-        {
-            // Arrange
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = "Error",
-                Message = invalidMessage ?? string.Empty,
-                TimeStamp = DateTimeOffset.UtcNow
-            };
-
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Message is required.", ex.Message);
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>();
         }
 
         [Fact]
-        public void Validate_EmptyId_ShouldThrowValidationException()
+        public void Create_LevelTooLong_ShouldThrowDomainException()
         {
             // Arrange
-            var log = new Log
-            {
-                Id = Guid.Empty,
-                Level = "Warning",
-                Message = "Id missing",
-                TimeStamp = DateTimeOffset.UtcNow
-            };
+            var level = new string('A', 51);
+            var message = "Valid message";
 
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Id cannot be empty.", ex.Message);
+            // Act
+            Action act = () => Log.Create(level, message);
+
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("Level exceeds maximum length of 50 characters.");
         }
 
         [Fact]
-        public void Validate_DefaultTimeStamp_ShouldThrowValidationException()
+        public void Create_MessageTooLong_ShouldThrowDomainException()
         {
             // Arrange
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = "Info",
-                Message = "Missing timestamp",
-                TimeStamp = default
-            };
+            var level = "Info";
+            var message = new string('B', 2001);
 
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Timestamp must be set.", ex.Message);
-        }
+            // Act
+            Action act = () => Log.Create(level, message);
 
-        [Fact]
-        public void Validate_LevelExceedsMaxLength_ShouldThrowValidationException()
-        {
-            // Arrange
-            var longLevel = new string('A', 51);
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = longLevel,
-                Message = "Too long level",
-                TimeStamp = DateTimeOffset.UtcNow
-            };
-
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Level exceeds maximum length of 50 characters.", ex.Message);
-        }
-
-        [Fact]
-        public void Validate_MessageExceedsMaxLength_ShouldThrowValidationException()
-        {
-            // Arrange
-            var longMessage = new string('B', 2001);
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = "Error",
-                Message = longMessage,
-                TimeStamp = DateTimeOffset.UtcNow
-            };
-
-            // Act & Assert
-            var ex = Assert.Throws<ValidationException>(() => log.Validate());
-            Assert.Equal("Message exceeds maximum length of 2000 characters.", ex.Message);
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("Message exceeds maximum length of 2000 characters.");
         }
     }
 }

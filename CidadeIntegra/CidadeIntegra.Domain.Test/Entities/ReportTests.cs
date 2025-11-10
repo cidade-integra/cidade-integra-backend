@@ -1,78 +1,105 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-using CidadeIntegra.Domain.Entities;
+﻿using CidadeIntegra.Domain.Entities;
 using CidadeIntegra.Domain.Validation;
+using FluentAssertions;
+using System.ComponentModel.DataAnnotations;
 using Xunit;
 
-namespace CidadeIntegra.Domain.Tests.Entities
+namespace CidadeIntegra.Domain.Test.Entities
 {
     public class ReportTests
     {
         [Fact]
-        public void Should_Create_Report_When_Valid_Data()
+        public void Constructor_WithValidParameters_ShouldCreateInstance()
         {
-            var report = new Report(
-                Guid.NewGuid(),
-                "Infraestrutura",
-                "Buraco na rua",
-                "Existe um grande buraco na rua principal.",
-                false,
-                "pending"
-            );
+            // Arrange
+            var userId = Guid.NewGuid();
+            var category = "Infrastructure";
+            var title = "Buraco na rua";
+            var description = "Existe um buraco grande na rua principal.";
+            var isAnonymous = false;
+            var status = "pending";
 
-            Assert.NotEqual(Guid.Empty, report.Id);
-            Assert.Equal("Infraestrutura", report.Category);
-            Assert.Equal("Buraco na rua", report.Title);
-            Assert.Equal("pending", report.Status);
-            Assert.True(report.CreatedAt <= DateTimeOffset.UtcNow);
-        }
+            // Act
+            var report = new Report(userId, category, title, description, isAnonymous, status);
 
-        [Fact]
-        public void Should_Throw_When_UserId_Empty()
-        {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Report(Guid.Empty, "Categoria", "Título", "Descrição", false));
+            // Assert
+            report.Should().NotBeNull();
+            report.UserId.Should().Be(userId);
+            report.Category.Should().Be(category);
+            report.Title.Should().Be(title);
+            report.Description.Should().Be(description);
+            report.IsAnonymous.Should().Be(isAnonymous);
+            report.Status.Should().Be(status);
+            report.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
+            report.UpdatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
         }
 
         [Theory]
-        [InlineData("", "Título", "Descrição", "pending")]
-        [InlineData(" ", "Título", "Descrição", "pending")]
-        [InlineData(null, "Título", "Descrição", "pending")]
-        public void Should_Throw_When_Category_Invalid(string category, string title, string desc, string status)
+        [InlineData("", "Valid Title", "Valid Description", "pending")] // Empty category
+        [InlineData("Category", "", "Valid Description", "pending")]      // Empty title
+        [InlineData("Category", "Title", "", "pending")]                  // Empty description
+        [InlineData("Category", "Title", "Description", "")]             // Empty status
+        [InlineData("Category", "Title", "Description", "invalid")]      // Invalid status
+        public void Constructor_WithInvalidParameters_ShouldThrowDomainException(
+            string category, string title, string description, string status)
         {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Report(Guid.NewGuid(), category, title, desc, false, status));
+            // Arrange
+            var userId = Guid.NewGuid();
+            var isAnonymous = false;
+
+            // Act
+            Action act = () => new Report(userId, category, title, description, isAnonymous, status);
+
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>();
         }
 
         [Fact]
-        public void Should_Throw_When_Title_Too_Long()
+        public void Constructor_WithEmptyUserId_ShouldThrowDomainException()
         {
-            var longTitle = new string('x', 121);
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Report(Guid.NewGuid(), "Cat", longTitle, "Descrição", false));
+            // Arrange
+            var userId = Guid.Empty;
+            var category = "Category";
+            var title = "Title";
+            var description = "Description";
+            var isAnonymous = false;
+            var status = "pending";
+
+            // Act
+            Action act = () => new Report(userId, category, title, description, isAnonymous, status);
+
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("UserId must be provided.");
         }
 
         [Fact]
-        public void Should_Throw_When_Status_Invalid()
+        public void ValidateResolvedAt_WithResolvedBeforeCreated_ShouldThrowValidationException()
         {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Report(Guid.NewGuid(), "Cat", "Título", "Descrição", false, "invalid_status"));
+            // Arrange
+            var report = new Report(Guid.NewGuid(), "Category", "Title", "Description", false);
+            report.ResolvedAt = report.CreatedAt.AddMinutes(-10);
+
+            // Act
+            Action act = () => report.ValidateResolvedAt();
+
+            // Assert
+            act.Should().Throw<ValidationException>()
+                .WithMessage("ResolvedAt cannot be before CreatedAt.");
         }
 
         [Fact]
-        public void Should_Throw_When_ResolvedAt_Before_CreatedAt()
+        public void ValidateResolvedAt_WithResolvedAfterCreated_ShouldNotThrow()
         {
-            var report = new Report(Guid.NewGuid(), "Cat", "Título", "Descrição", false);
-            report.ResolvedAt = report.CreatedAt.AddDays(-1);
-            Assert.Throws<ValidationException>(() => report.Validate());
-        }
+            // Arrange
+            var report = new Report(Guid.NewGuid(), "Category", "Title", "Description", false);
+            report.ResolvedAt = report.CreatedAt.AddMinutes(10);
 
-        [Fact]
-        public void Should_Pass_When_ResolvedAt_After_CreatedAt()
-        {
-            var report = new Report(Guid.NewGuid(), "Cat", "Título", "Descrição", false);
-            report.ResolvedAt = report.CreatedAt.AddDays(1);
-            report.Validate(); // Não deve lançar exceção
+            // Act
+            Action act = () => report.ValidateResolvedAt();
+
+            // Assert
+            act.Should().NotThrow();
         }
     }
 }

@@ -1,116 +1,150 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using CidadeIntegra.Domain.Entities;
+﻿using CidadeIntegra.Domain.Entities;
 using CidadeIntegra.Domain.Validation;
-using Google.Cloud.Firestore;
+using FluentAssertions;
 using Xunit;
 
-namespace CidadeIntegra.Domain.Tests.Entities
+namespace CidadeIntegra.Domain.Test.Entities
 {
     public class UserTests
     {
-        [Fact(DisplayName = "Deve criar um usuário válido")]
-        public void Deve_CriarUsuario_Valido()
+        #region Criação de usuário
+
+        [Fact]
+        public void Constructor_Should_CreateUser_When_ValidData()
         {
-            var user = new User(
-                Guid.NewGuid(),
-                "João Silva",
-                "joao@teste.com",
-                "https://foto.com/jp.png",
-                "São Paulo",
-                "user",
-                "active",
-                DateTimeOffset.UtcNow
-            );
+            // Arrange
+            var id = Guid.NewGuid();
+            var displayName = "John Doe";
+            var email = "john@example.com";
+            var photoUrl = "http://photo.com/john.png";
+            var region = "SP";
+            var role = "user";
+            var status = "active";
+            var createdAt = DateTimeOffset.UtcNow;
 
-            user.Validate();
+            // Act
+            var user = new User(id, displayName, email, photoUrl, region, role, status, createdAt);
 
-            Assert.Equal("João Silva", user.DisplayName);
-            Assert.Equal("joao@teste.com", user.Email);
-            Assert.Equal("user", user.Role);
-            Assert.Equal("active", user.Status);
-            Assert.False(user.Verified);
+            // Assert
+            user.Id.Should().Be(id);
+            user.DisplayName.Should().Be(displayName);
+            user.Email.Should().Be(email.ToLowerInvariant());
+            user.PhotoUrl.Should().Be(photoUrl);
+            user.Region.Should().Be(region);
+            user.Role.Should().Be(role);
+            user.Status.Should().Be(status);
+            user.CreatedAt.Should().Be(createdAt);
+            user.LastLoginAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
+            user.ReportCount.Should().Be(0);
+            user.Score.Should().Be(0);
+            user.Verified.Should().BeFalse();
         }
 
-        [Theory(DisplayName = "Deve falhar ao criar usuário com campos inválidos")]
-        [InlineData("", "email@teste.com", "DisplayName is required.")]
-        [InlineData("Nome", "", "Email is required and must be valid.")]
-        [InlineData("Nome", "email_invalido", "Email is required and must be valid.")]
-        public void Deve_Falhar_Usuario_CamposInvalidos(string displayName, string email, string mensagemEsperada)
+        [Theory]
+        [InlineData("", "john@example.com", "DisplayName is required.")]
+        [InlineData("John", "", "Email is required.")]
+        [InlineData("John", "invalid-email", "Email must be valid.")]
+        public void Constructor_Should_ThrowDomainException_When_InvalidData(string displayName, string email, string expectedMessage)
         {
-            var ex = Assert.Throws<DomainExceptionValidation>(() =>
-                new User(Guid.NewGuid(), displayName, email, null, null, "user", "active", DateTimeOffset.UtcNow)
-            );
+            // Arrange
+            var id = Guid.NewGuid();
+            var createdAt = DateTimeOffset.UtcNow;
 
-            Assert.Contains(mensagemEsperada, ex.Message);
+            // Act
+            Action act = () => new User(id, displayName, email, null, null, "user", "active", createdAt);
+
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>()
+               .WithMessage(expectedMessage);
         }
 
-        [Fact(DisplayName = "Deve criar usuário a partir de um dicionário (Firestore simulado)")]
-        public void Deve_CriarUsuario_FromDictionary()
+        #endregion
+
+        #region Atualização de perfil
+
+        [Fact]
+        public void UpdateProfile_Should_UpdateFields_When_ValidData()
         {
-            var data = new Dictionary<string, object>
-            {
-                { "displayName", "Maria Teste" },
-                { "email", "maria@teste.com" },
-                { "photoURL", "https://img.com/maria.png" },
-                { "region", "RJ" },
-                { "role", "admin" },
-                { "status", "active" },
-                { "score", 100 },
-                { "reportCount", 3 },
-                { "verified", true },
-                { "createdAt", Timestamp.FromDateTime(DateTime.UtcNow) },
-                { "lastLoginAt", Timestamp.FromDateTime(DateTime.UtcNow) }
-            };
+            // Arrange
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+            var newName = "Jane Doe";
+            var newEmail = "jane@example.com";
+            var newPhoto = "http://photo.com/jane.png";
+            var newRegion = "RJ";
 
-            var user = User.FromDictionary(data, "firebase123");
+            // Act
+            user.UpdateProfile(newName, newEmail, newPhoto, newRegion);
 
-            Assert.Equal("Maria Teste", user.DisplayName);
-            Assert.Equal("maria@teste.com", user.Email);
-            Assert.Equal("admin", user.Role);
-            Assert.True(user.Verified);
-            Assert.Equal(3, user.ReportCount);
-            Assert.Equal("firebase123", user.FirebaseId);
+            // Assert
+            user.DisplayName.Should().Be(newName);
+            user.Email.Should().Be(newEmail.ToLowerInvariant());
+            user.PhotoUrl.Should().Be(newPhoto);
+            user.Region.Should().Be(newRegion);
         }
 
-        [Fact(DisplayName = "Deve atualizar usuário a partir de um dicionário (Firestore simulado)")]
-        public void Deve_AtualizarUsuario_FromDictionary()
+        [Fact]
+        public void UpdateProfile_Should_Throw_When_InvalidEmail()
         {
-            var user = new User(Guid.NewGuid(), "Antigo", "antigo@teste.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+            // Arrange
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
 
-            var data = new Dictionary<string, object>
-            {
-                { "displayName", "Novo Nome" },
-                { "email", "novo@teste.com" },
-                { "score", 500 },
-                { "verified", true }
-            };
+            // Act
+            Action act = () => user.UpdateProfile("John", "invalid-email", null, null);
 
-            user.UpdateFromDictionary(data);
-
-            Assert.Equal("Novo Nome", user.DisplayName);
-            Assert.Equal("novo@teste.com", user.Email);
-            Assert.Equal(500, user.Score);
-            Assert.True(user.Verified);
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>()
+               .WithMessage("Email must be valid.");
         }
 
-        [Fact(DisplayName = "Deve lançar exceção se CreatedAt for no futuro")]
-        public void Deve_LancarExcecao_SeCreatedAtFuturo()
-        {
-            var user = new User(
-                Guid.NewGuid(),
-                "Lucas Teste",
-                "lucas@teste.com",
-                null,
-                null,
-                "user",
-                "active",
-                DateTimeOffset.UtcNow.AddDays(1)
-            );
+        #endregion
 
-            var ex = Assert.Throws<ValidationException>(() => user.Validate());
-            Assert.Equal("CreatedAt cannot be in the future.", ex.Message);
+        #region Alteração de role/status
+
+        [Fact]
+        public void ChangeRole_Should_UpdateRole_When_Valid()
+        {
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+            user.ChangeRole("admin");
+            user.Role.Should().Be("admin");
         }
+
+        [Fact]
+        public void ChangeStatus_Should_UpdateStatus_When_Valid()
+        {
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+            user.ChangeStatus("inactive");
+            user.Status.Should().Be("inactive");
+        }
+
+        #endregion
+
+        #region Estatísticas
+
+        [Fact]
+        public void SetStats_Should_UpdateStats_When_Valid()
+        {
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+            user.SetStats(10, 5, true);
+
+            user.Score.Should().Be(10);
+            user.ReportCount.Should().Be(5);
+            user.Verified.Should().BeTrue();
+        }
+
+        [Fact]
+        public void SetStats_Should_Throw_When_NegativeValues()
+        {
+            var user = new User(Guid.NewGuid(), "John", "john@example.com", null, null, "user", "active", DateTimeOffset.UtcNow);
+
+            Action act = () => user.SetStats(-1, 0, true);
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("Score cannot be negative.");
+
+            act = () => user.SetStats(0, -5, true);
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("ReportCount cannot be negative.");
+        }
+
+        #endregion
     }
 }
