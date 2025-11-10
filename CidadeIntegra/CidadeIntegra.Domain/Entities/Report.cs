@@ -1,4 +1,5 @@
-﻿using Google.Cloud.Firestore;
+﻿using CidadeIntegra.Domain.Validation;
+using Google.Cloud.Firestore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -14,23 +15,24 @@ namespace CidadeIntegra.Domain.Entities
         [MaxLength(100)]
         public string FirebaseId { get; set; } = string.Empty;
 
+        [Required]
         [ForeignKey(nameof(User))]
         public Guid UserId { get; set; }
         #endregion
 
         #region Informações
-        [Required, MaxLength(50)]
+        [Required, StringLength(50, MinimumLength = 3)]
         public string Category { get; set; } = string.Empty;
 
-        [Required, MaxLength(120)]
+        [Required, StringLength(120, MinimumLength = 3)]
         public string Title { get; set; } = string.Empty;
 
-        [Required]
+        [Required, StringLength(2000, MinimumLength = 5)]
         public string Description { get; set; } = string.Empty;
 
         public bool IsAnonymous { get; set; }
 
-        [Required, MaxLength(50)]
+        [Required, StringLength(50)]
         public string Status { get; set; } = "pending";
 
         [MaxLength(500)]
@@ -51,6 +53,35 @@ namespace CidadeIntegra.Domain.Entities
         public ReportLocation Location { get; set; } = null!;
         public ICollection<Comment> Comments { get; set; } = new List<Comment>();
         public ICollection<UserSavedReport> SavedByUsers { get; set; } = new List<UserSavedReport>();
+        #endregion
+
+        #region Construtores
+        protected Report() { } // EF
+
+        public Report(Guid userId, string category, string title, string description, bool isAnonymous, string status = "pending")
+        {
+            DomainExceptionValidation.When(userId == Guid.Empty, "Invalid UserId.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(category), "Category is required.");
+            DomainExceptionValidation.When(category.Length > 50, "Category length cannot exceed 50 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(title), "Title is required.");
+            DomainExceptionValidation.When(title.Length > 120, "Title length cannot exceed 120 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(description), "Description is required.");
+            DomainExceptionValidation.When(description.Length > 2000, "Description length cannot exceed 2000 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(status), "Status is required.");
+            DomainExceptionValidation.When(!IsValidStatus(status), "Invalid status value.");
+
+            Id = Guid.NewGuid();
+            UserId = userId;
+            Category = category.Trim();
+            Title = title.Trim();
+            Description = description.Trim();
+            IsAnonymous = isAnonymous;
+            Status = status.Trim().ToLowerInvariant();
+            CreatedAt = DateTimeOffset.UtcNow;
+            UpdatedAt = DateTimeOffset.UtcNow;
+
+            Validate();
+        }
         #endregion
 
         #region Métodos de Migração
@@ -85,6 +116,7 @@ namespace CidadeIntegra.Domain.Entities
                 };
             }
 
+            report.Validate();
             return report;
         }
 
@@ -109,8 +141,47 @@ namespace CidadeIntegra.Domain.Entities
                 Location.Longitude = Convert.ToDecimal(loc.GetValueOrDefault("longitude", Location.Longitude));
                 Location.PostalCode = loc.GetValueOrDefault("postalCode", Location.PostalCode)?.ToString() ?? Location.PostalCode;
             }
+
+            Validate();
+        }
+        #endregion
+
+        #region Validation
+        public void Validate()
+        {
+            if (UserId == Guid.Empty)
+                throw new ValidationException("UserId must be provided.");
+
+            if (string.IsNullOrWhiteSpace(Title))
+                throw new ValidationException("Title is required.");
+
+            if (string.IsNullOrWhiteSpace(Description))
+                throw new ValidationException("Description is required.");
+
+            if (string.IsNullOrWhiteSpace(Category))
+                throw new ValidationException("Category is required.");
+
+            if (!IsValidStatus(Status))
+                throw new ValidationException($"Invalid status '{Status}'.");
+
+            if (ResolvedAt.HasValue && ResolvedAt < CreatedAt)
+                throw new ValidationException("ResolvedAt cannot be before CreatedAt.");
+
+            if (CreatedAt == default)
+                CreatedAt = DateTimeOffset.UtcNow;
+
+            if (UpdatedAt == default)
+                UpdatedAt = DateTimeOffset.UtcNow;
         }
 
+        private static bool IsValidStatus(string status)
+        {
+            string[] validStatuses = { "pending", "in_progress", "resolved", "rejected" };
+            return validStatuses.Contains(status?.Trim().ToLowerInvariant());
+        }
+        #endregion
+
+        #region HELPERS
         private static DateTimeOffset ParseDate(object? dateObj)
         {
             if (dateObj is Timestamp ts)
@@ -134,29 +205,6 @@ namespace CidadeIntegra.Domain.Entities
                 return urls.FirstOrDefault()?.ToString() ?? "";
 
             return "";
-        }
-        #endregion
-
-        #region Validation
-        public void Validate()
-        {
-            if (UserId == Guid.Empty)
-                throw new ValidationException("UserId must be provided.");
-
-            if (string.IsNullOrWhiteSpace(Title))
-                throw new ValidationException("Title is required.");
-
-            if (string.IsNullOrWhiteSpace(Description))
-                throw new ValidationException("Description is required.");
-
-            if (string.IsNullOrWhiteSpace(Category))
-                Category = "outros"; // default
-
-            if (CreatedAt == default)
-                CreatedAt = DateTimeOffset.UtcNow;
-
-            if (UpdatedAt == default)
-                UpdatedAt = DateTimeOffset.UtcNow;
         }
         #endregion
     }

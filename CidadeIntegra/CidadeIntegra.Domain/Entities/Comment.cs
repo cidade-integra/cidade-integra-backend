@@ -1,4 +1,5 @@
-﻿using Google.Cloud.Firestore;
+﻿using CidadeIntegra.Domain.Validation;
+using Google.Cloud.Firestore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -32,6 +33,33 @@ namespace CidadeIntegra.Domain.Entities
         #region Navegações
         public Report Report { get; private set; } = null!;
         public User Author { get; private set; } = null!;
+        #endregion
+
+        #region Construtores
+        protected Comment() { } // EF
+
+        public Comment(Guid reportId, Guid authorId, string avatarColor, string message, string role)
+        {
+            DomainExceptionValidation.When(reportId == Guid.Empty, "Invalid ReportId.");
+            DomainExceptionValidation.When(authorId == Guid.Empty, "Invalid AuthorId.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(message), "Message cannot be empty.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(role), "Role cannot be empty.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(avatarColor), "AvatarColor cannot be empty.");
+            DomainExceptionValidation.When(message.Length > 500, "Message length cannot exceed 500 characters.");
+            DomainExceptionValidation.When(role.Length > 50, "Role length cannot exceed 50 characters.");
+            DomainExceptionValidation.When(avatarColor.Length > 50, "AvatarColor length cannot exceed 50 characters.");
+
+
+            Id = Guid.NewGuid();
+            ReportId = reportId;
+            AuthorId = authorId;
+            AvatarColor = avatarColor;
+            Message = message;
+            Role = role;
+            CreatedAt = DateTimeOffset.UtcNow;
+
+            Validate();
+        }
         #endregion
 
         #region Fabricação/Atualização Firestore
@@ -83,11 +111,8 @@ namespace CidadeIntegra.Domain.Entities
             var context = new ValidationContext(this);
             Validator.ValidateObject(this, context, validateAllProperties: true);
 
-            if (string.IsNullOrWhiteSpace(Message))
-                throw new ValidationException("Message cannot be empty.");
-
-            if (string.IsNullOrWhiteSpace(Role))
-                throw new ValidationException("Role cannot be empty.");
+            if (CreatedAt > DateTimeOffset.UtcNow.AddMinutes(5))
+                throw new ValidationException("CreatedAt cannot be a future date.");
         }
         #endregion
 
