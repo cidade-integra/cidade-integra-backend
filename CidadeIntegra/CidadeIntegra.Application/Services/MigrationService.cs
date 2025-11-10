@@ -10,11 +10,12 @@ namespace CidadeIntegra.Application.Services
     {
         private readonly IUserService _userService;
         private readonly IReportService _reportService;
+        private readonly ICommentService _commentService;
         private readonly ILogService _logService;
         private readonly ILogger<MigrationService> _logger;
         private readonly FirestoreDb _firestore;
 
-        // Mapeia FirebaseId -> Guid do usuário salvo no SQL
+        // mapeia FirebaseId -> Guid do usuário salvo no SQL
         private readonly Dictionary<string, Guid> _userMap = new();
 
         public MigrationService(
@@ -22,7 +23,8 @@ namespace CidadeIntegra.Application.Services
             IReportService reportService,
             ILogService logService,
             ILogger<MigrationService> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ICommentService commentService)
         {
             _userService = userService;
             _reportService = reportService;
@@ -34,6 +36,7 @@ namespace CidadeIntegra.Application.Services
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
 
             _firestore = FirestoreDb.Create(projectId);
+            _commentService = commentService;
         }
 
         public async Task RunMigrationAsync()
@@ -73,37 +76,25 @@ namespace CidadeIntegra.Application.Services
             {
                 try
                 {
-                    var data = doc.ToDictionary();
                     var firebaseId = doc.Id;
-
                     var existingUser = await _userService.GetByFirebaseIdAsync(firebaseId);
-                    var user = existingUser ?? new User { Id = existingUser?.Id ?? Guid.NewGuid() };
 
-                    user.FirebaseId = firebaseId;
-                    user.DisplayName = data.GetValueOrDefault("displayName", string.Empty)?.ToString() ?? "";
-                    user.Email = data.GetValueOrDefault("email", string.Empty)?.ToString() ?? "";
-                    user.PhotoUrl = data.GetValueOrDefault("photoURL", string.Empty)?.ToString() ?? "";
-                    user.Region = data.GetValueOrDefault("region", string.Empty)?.ToString() ?? "";
-                    user.Role = data.GetValueOrDefault("role", "user")?.ToString() ?? "user";
-                    user.Status = data.GetValueOrDefault("status", "active")?.ToString() ?? "active";
-                    user.Score = Convert.ToInt32(data.GetValueOrDefault("score", 0));
-                    user.ReportCount = Convert.ToInt32(data.GetValueOrDefault("reportCount", 0));
-                    user.Verified = Convert.ToBoolean(data.GetValueOrDefault("verified", false));
-                    user.CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
-                    user.LastLoginAt = ParseDate(data.GetValueOrDefault("lastLoginAt"));
-
+                    User user;
                     if (existingUser == null)
                     {
+                        user = User.FromFirestore(doc);
                         await _userService.CreateAsync(user);
                         createdCount++;
-                        _logger.LogInformation($"Usuário criado: {user.DisplayName}");
+                        _logger.LogInformation($"Usuário criado: {user.Email}");
                         await LogAsync("Information", $"Usuário criado: {user.Email}");
                     }
                     else
                     {
+                        existingUser.UpdateFromFirestore(doc);
+                        user = existingUser;
                         await _userService.UpdateAsync(user);
                         updatedCount++;
-                        _logger.LogInformation($"Usuário atualizado: {user.DisplayName}");
+                        _logger.LogInformation($"Usuário atualizado: {user.Email}");
                         await LogAsync("Information", $"Usuário atualizado: {user.Email}");
                     }
 
@@ -134,53 +125,33 @@ namespace CidadeIntegra.Application.Services
             int createdCount = 0;
             int updatedCount = 0;
             int skippedCount = 0;
+            int commentsCount = 0;
 
             foreach (var doc in snapshot.Documents)
             {
                 try
                 {
-                    var data = doc.ToDictionary();
                     var firebaseId = doc.Id;
-
                     var existingReport = await _reportService.GetByFirebaseIdAsync(firebaseId);
-                    var report = existingReport ?? new Report { Id = existingReport?.Id ?? Guid.NewGuid() };
 
-                    report.FirebaseId = firebaseId;
-                    report.Category = data.GetValueOrDefault("category", "outros")?.ToString() ?? "outros";
-                    report.Title = data.GetValueOrDefault("title", string.Empty)?.ToString() ?? "";
-                    report.Description = data.GetValueOrDefault("description", string.Empty)?.ToString() ?? "";
-                    report.Status = data.GetValueOrDefault("status", "pending")?.ToString() ?? "pending";
-                    report.IsAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", false));
-                    report.ImageUrl1 = ExtractFirstImageUrl(data);
-                    report.CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
-                    report.UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
-                    report.ResolvedAt = ParseDate(data.GetValueOrDefault("resolvedAt"));
+                    // obtém UserId referente ao usuário do report
+                    var userIdFirestore = doc.ContainsField("userId")
+                                         ? doc.GetValue<string>("userId")
+                                         : null;
 
-                    var userIdFirestore = data.GetValueOrDefault("userId", null)?.ToString();
-                    if (userIdFirestore != null && _userMap.TryGetValue(userIdFirestore, out var userId))
-                    {
-                        report.UserId = userId;
-                    }
-                    else
+                    if (userIdFirestore == null || !_userMap.TryGetValue(userIdFirestore, out var userId))
                     {
                         skippedCount++;
-                        string msg = $"Usuário não encontrado para o report {report.Title}";
+                        string msg = $"Usuário não encontrado para o report {firebaseId}";
                         _logger.LogWarning(msg);
                         await LogAsync("Warning", msg);
                         continue;
                     }
 
-                    if (data.TryGetValue("location", out var locationObj) && locationObj is Dictionary<string, object> loc)
-                    {
-                        report.Location ??= new ReportLocation { Id = Guid.NewGuid() };
-                        report.Location.Address = loc.GetValueOrDefault("address", "")?.ToString() ?? "";
-                        report.Location.Latitude = Convert.ToDecimal(loc.GetValueOrDefault("latitude", 0));
-                        report.Location.Longitude = Convert.ToDecimal(loc.GetValueOrDefault("longitude", 0));
-                        report.Location.PostalCode = loc.GetValueOrDefault("postalCode", "")?.ToString() ?? "";
-                    }
-
+                    Report report;
                     if (existingReport == null)
                     {
+                        report = Report.FromFirestore(doc, userId);
                         await _reportService.CreateAsync(report);
                         createdCount++;
                         _logger.LogInformation($"Report criado: {report.Title}");
@@ -188,45 +159,52 @@ namespace CidadeIntegra.Application.Services
                     }
                     else
                     {
+                        existingReport.UpdateFromFirestore(doc, userId);
+                        report = existingReport;
                         await _reportService.UpdateAsync(report);
                         updatedCount++;
                         _logger.LogInformation($"Report atualizado: {report.Title}");
                         await LogAsync("Information", $"Report atualizado: {report.Title}");
                     }
+
+                    // migração de comentários do report
+                    var commentsCollection = doc.Reference.Collection("comments");
+                    var commentsSnapshot = await commentsCollection.GetSnapshotAsync();
+
+                    foreach (var commentDoc in commentsSnapshot.Documents)
+                    {
+                        try
+                        {
+                            var comment = Comment.FromFirestore(commentDoc, report.Id, _userMap);
+                            await _commentService.CreateAsync(comment);
+                            commentsCount++;
+                            _logger.LogInformation($"Comentário criado para report {report.Title}: {comment.Message}");
+                            await LogAsync("Information", $"Comentário criado para report {report.Title}: {comment.Message}");
+                        }
+                        catch (Exception commentEx)
+                        {
+                            _logger.LogError(commentEx, "Erro ao migrar comentário {CommentId}", commentDoc.Id);
+                            await LogAsync("Error", $"Erro ao migrar comentário {commentDoc.Id}", commentEx);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao migrar report {DocId}", doc.Id);
+                    _logger.LogError(ex, "Erro ao migrar report {ReportId}", doc.Id);
                     await LogAsync("Error", $"Erro ao migrar report {doc.Id}", ex);
                 }
             }
 
-            _logger.LogInformation("Migração de reports concluída. {CreatedCount} criados, {UpdatedCount} atualizados, {SkippedCount} ignorados, total {Total}.",
-                createdCount, updatedCount, skippedCount, createdCount + updatedCount);
-            await LogAsync("Information", $"Migração de reports concluída: {createdCount} criados, {updatedCount} atualizados, {skippedCount} ignorados.");
+            _logger.LogInformation(
+                "Migração de reports concluída. {CreatedCount} criados, {UpdatedCount} atualizados, {SkippedCount} ignorados, {CommentsCount} comentários migrados.",
+                createdCount, updatedCount, skippedCount, commentsCount);
+
+            await LogAsync("Information",
+                $"Migração de reports concluída: {createdCount} criados, {updatedCount} atualizados, {skippedCount} ignorados, {commentsCount} comentários migrados.");
         }
         #endregion
 
         #region HELPERS
-        private static DateTimeOffset ParseDate(object? dateObj)
-        {
-            if (dateObj is Timestamp ts)
-                return ts.ToDateTimeOffset();
-
-            if (DateTimeOffset.TryParse(dateObj?.ToString(), out var parsed))
-                return parsed;
-
-            return DateTimeOffset.UtcNow;
-        }
-
-        private static string ExtractFirstImageUrl(Dictionary<string, object> data)
-        {
-            if (data.TryGetValue("imagemUrls", out var urlsObj) && urlsObj is IEnumerable<object> urls)
-                return urls.FirstOrDefault()?.ToString() ?? "";
-
-            return "";
-        }
-
         private async Task LogAsync(string level, string message, Exception? ex = null)
         {
             try

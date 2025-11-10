@@ -31,11 +31,6 @@ namespace CidadeIntegra.Infra.Data.Migrations
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("AvatarColor")
                         .IsRequired()
                         .HasMaxLength(50)

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CidadeIntegra.Infra.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251104130226_EntitiesMigration")]
+    [Migration("20251108203239_EntitiesMigration")]
     partial class EntitiesMigration
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,11 +32,6 @@ namespace CidadeIntegra.Infra.Data.Migrations
 
                     b.Property<Guid>("AuthorId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AuthorName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("AvatarColor")
                         .IsRequired()
@@ -66,6 +61,33 @@ namespace CidadeIntegra.Infra.Data.Migrations
                     b.HasIndex("ReportId");
 
                     b.ToTable("Comments", (string)null);
+                });
+
+            modelBuilder.Entity("CidadeIntegra.Domain.Entities.Log", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Exception")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("TimeStamp")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Logs");
                 });
 
             modelBuilder.Entity("CidadeIntegra.Domain.Entities.Report", b =>
