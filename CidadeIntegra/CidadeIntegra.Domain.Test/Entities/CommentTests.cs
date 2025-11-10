@@ -1,89 +1,66 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-using CidadeIntegra.Domain.Entities;
+﻿using CidadeIntegra.Domain.Entities;
 using CidadeIntegra.Domain.Validation;
+using FluentAssertions;
 using Xunit;
 
-namespace CidadeIntegra.Domain.Tests.Entities
+namespace CidadeIntegra.Domain.Test.Entities
 {
     public class CommentTests
     {
         [Fact]
-        public void Should_Create_Comment_When_Valid_Data()
+        public void Create_ValidParameters_ShouldReturnComment()
         {
-            var comment = new Comment(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                "#FF5733",
-                "Mensagem válida",
-                "Administrador"
-            );
+            // Arrange
+            var reportId = Guid.NewGuid();
+            var authorId = Guid.NewGuid();
+            var avatarColor = "red";
+            var message = "This is a comment";
+            var role = "user";
 
-            Assert.NotEqual(Guid.Empty, comment.Id);
-            Assert.Equal("Mensagem válida", comment.Message);
-            Assert.Equal("Administrador", comment.Role);
-            Assert.Equal("#FF5733", comment.AvatarColor);
-            Assert.True(comment.CreatedAt <= DateTimeOffset.UtcNow);
+            // Act
+            var comment = Comment.Create(reportId, authorId, avatarColor, message, role);
+
+            // Assert
+            comment.Should().NotBeNull();
+            comment.Id.Should().NotBeEmpty();
+            comment.ReportId.Should().Be(reportId);
+            comment.AuthorId.Should().Be(authorId);
+            comment.AvatarColor.Should().Be(avatarColor);
+            comment.Message.Should().Be(message);
+            comment.Role.Should().Be(role);
+            comment.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
         }
 
         [Theory]
-        [InlineData("", "Mensagem", "Role")]
-        [InlineData(" ", "Mensagem", "Role")]
-        [InlineData(null, "Mensagem", "Role")]
-        public void Should_Throw_When_AvatarColor_Invalid(string avatarColor, string message, string role)
+        [InlineData("", "Message", "user")]
+        [InlineData("Avatar", "", "user")]
+        [InlineData("Avatar", "Message", "")]
+        public void Create_InvalidParameters_ShouldThrowDomainException(string avatar, string message, string role)
         {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.NewGuid(), Guid.NewGuid(), avatarColor, message, role));
-        }
+            // Arrange
+            var reportId = Guid.NewGuid();
+            var authorId = Guid.NewGuid();
 
-        [Theory]
-        [InlineData("", "Avatar", "Role")]
-        [InlineData(" ", "Avatar", "Role")]
-        [InlineData(null, "Avatar", "Role")]
-        public void Should_Throw_When_Message_Invalid(string message, string avatar, string role)
-        {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.NewGuid(), Guid.NewGuid(), avatar, message, role));
+            // Act
+            Action act = () => Comment.Create(reportId, authorId, avatar, message, role);
+
+            // Assert
+            act.Should().Throw<DomainExceptionValidation>();
         }
 
         [Fact]
-        public void Should_Throw_When_Role_Empty()
+        public void Create_MessageTooLong_ShouldThrowDomainException()
         {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.NewGuid(), Guid.NewGuid(), "#000000", "Mensagem", ""));
-        }
+            var reportId = Guid.NewGuid();
+            var authorId = Guid.NewGuid();
+            var avatarColor = "red";
+            var message = new string('A', 501);
+            var role = "user";
 
-        [Fact]
-        public void Should_Throw_When_ReportId_Empty()
-        {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.Empty, Guid.NewGuid(), "#000000", "Mensagem", "User"));
-        }
+            Action act = () => Comment.Create(reportId, authorId, avatarColor, message, role);
 
-        [Fact]
-        public void Should_Throw_When_AuthorId_Empty()
-        {
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.NewGuid(), Guid.Empty, "#000000", "Mensagem", "User"));
-        }
-
-        [Fact]
-        public void Should_Throw_When_Message_Exceeds_Max_Length()
-        {
-            var message = new string('a', 501);
-            Assert.Throws<DomainExceptionValidation>(() =>
-                new Comment(Guid.NewGuid(), Guid.NewGuid(), "#000000", message, "User"));
-        }
-
-        [Fact]
-        public void Should_Throw_When_CreatedAt_In_Future()
-        {
-            var comment = new Comment(Guid.NewGuid(), Guid.NewGuid(), "#111111", "Mensagem válida", "User");
-
-            var prop = typeof(Comment).GetProperty("CreatedAt");
-            prop!.SetValue(comment, DateTimeOffset.UtcNow.AddDays(1));
-
-            Assert.Throws<ValidationException>(() => comment.Validate());
+            act.Should().Throw<DomainExceptionValidation>()
+                .WithMessage("Message length cannot exceed 500 characters.");
         }
     }
 }

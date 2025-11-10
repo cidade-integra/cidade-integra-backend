@@ -8,51 +8,46 @@ namespace CidadeIntegra.Domain.Entities
     [Table("Reports")]
     public class Report
     {
-        #region Identificação
+        #region Atributos
         [Key]
-        public Guid Id { get; set; }
+        public Guid Id { get; private set; }
 
         [MaxLength(100)]
-        public string FirebaseId { get; set; } = string.Empty;
+        public string FirebaseId { get; private set; } = string.Empty;
 
         [Required]
         [ForeignKey(nameof(User))]
-        public Guid UserId { get; set; }
-        #endregion
+        public Guid UserId { get; private set; }
 
-        #region Informações
         [Required, StringLength(50, MinimumLength = 3)]
-        public string Category { get; set; } = string.Empty;
+        public string Category { get; private set; } = string.Empty;
 
         [Required, StringLength(120, MinimumLength = 3)]
-        public string Title { get; set; } = string.Empty;
+        public string Title { get; private set; } = string.Empty;
 
         [Required, StringLength(2000, MinimumLength = 5)]
-        public string Description { get; set; } = string.Empty;
+        public string Description { get; private set; } = string.Empty;
 
-        public bool IsAnonymous { get; set; }
+        public bool IsAnonymous { get; private set; }
 
         [Required, StringLength(50)]
-        public string Status { get; set; } = "pending";
+        public string Status { get; private set; } = "pending";
 
         [MaxLength(500)]
-        public string? ImageUrl1 { get; set; } = string.Empty;
+        public string? ImageUrl1 { get; private set; }
 
         [MaxLength(500)]
-        public string? ImageUrl2 { get; set; } = string.Empty;
-        #endregion
-
-        #region Datas
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
+        public string? ImageUrl2 { get; private set; }
+        public DateTimeOffset CreatedAt { get; private set; }
+        public DateTimeOffset UpdatedAt { get; private set; }
         public DateTimeOffset? ResolvedAt { get; set; }
         #endregion
 
         #region Navegações
-        public User User { get; set; } = null!;
-        public ReportLocation Location { get; set; } = null!;
-        public ICollection<Comment> Comments { get; set; } = new List<Comment>();
-        public ICollection<UserSavedReport> SavedByUsers { get; set; } = new List<UserSavedReport>();
+        public User User { get; private set; } = null!;
+        public ReportLocation Location { get; private set; } = null!;
+        public ICollection<Comment> Comments { get; private set; } = new List<Comment>();
+        public ICollection<UserSavedReport> SavedByUsers { get; private set; } = new List<UserSavedReport>();
         #endregion
 
         #region Construtores
@@ -60,15 +55,7 @@ namespace CidadeIntegra.Domain.Entities
 
         public Report(Guid userId, string category, string title, string description, bool isAnonymous, string status = "pending")
         {
-            DomainExceptionValidation.When(userId == Guid.Empty, "Invalid UserId.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(category), "Category is required.");
-            DomainExceptionValidation.When(category.Length > 50, "Category length cannot exceed 50 characters.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(title), "Title is required.");
-            DomainExceptionValidation.When(title.Length > 120, "Title length cannot exceed 120 characters.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(description), "Description is required.");
-            DomainExceptionValidation.When(description.Length > 2000, "Description length cannot exceed 2000 characters.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(status), "Status is required.");
-            DomainExceptionValidation.When(!IsValidStatus(status), "Invalid status value.");
+            Validate(userId, category, title, description, status);
 
             Id = Guid.NewGuid();
             UserId = userId;
@@ -79,29 +66,31 @@ namespace CidadeIntegra.Domain.Entities
             Status = status.Trim().ToLowerInvariant();
             CreatedAt = DateTimeOffset.UtcNow;
             UpdatedAt = DateTimeOffset.UtcNow;
-
-            Validate();
         }
         #endregion
 
-        #region Métodos de Migração
+        #region Migração Firestore
         public static Report FromFirestore(DocumentSnapshot doc, Guid userId)
         {
             var data = doc.ToDictionary();
-            var report = new Report
+
+            var category = data.GetValueOrDefault("category", "outros")?.ToString() ?? "outros";
+            var title = data.GetValueOrDefault("title", string.Empty)?.ToString() ?? "";
+            var description = data.GetValueOrDefault("description", string.Empty)?.ToString() ?? "";
+            var status = data.GetValueOrDefault("status", "pending")?.ToString() ?? "pending";
+            var isAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", false));
+            var imageUrl1 = ExtractFirstImageUrl(data);
+            var createdAt = ParseDate(data.GetValueOrDefault("createdAt"));
+            var updatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
+            var resolvedAt = ParseDateNullable(data.GetValueOrDefault("resolvedAt"));
+
+            var report = new Report(userId, category, title, description, isAnonymous, status)
             {
-                Id = Guid.NewGuid(),
                 FirebaseId = doc.Id,
-                UserId = userId,
-                Category = data.GetValueOrDefault("category", "outros")?.ToString() ?? "outros",
-                Title = data.GetValueOrDefault("title", string.Empty)?.ToString() ?? "",
-                Description = data.GetValueOrDefault("description", string.Empty)?.ToString() ?? "",
-                Status = data.GetValueOrDefault("status", "pending")?.ToString() ?? "pending",
-                IsAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", false)),
-                ImageUrl1 = ExtractFirstImageUrl(data),
-                CreatedAt = ParseDate(data.GetValueOrDefault("createdAt")),
-                UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt")),
-                ResolvedAt = ParseDateNullable(data.GetValueOrDefault("resolvedAt"))
+                ImageUrl1 = imageUrl1,
+                CreatedAt = createdAt,
+                UpdatedAt = updatedAt,
+                ResolvedAt = resolvedAt
             };
 
             if (data.TryGetValue("location", out var locationObj) && locationObj is Dictionary<string, object> loc)
@@ -116,22 +105,33 @@ namespace CidadeIntegra.Domain.Entities
                 };
             }
 
-            report.Validate();
             return report;
         }
 
         public void UpdateFromFirestore(DocumentSnapshot doc, Guid userId)
         {
             var data = doc.ToDictionary();
+
+            var category = data.GetValueOrDefault("category", Category)?.ToString() ?? Category;
+            var title = data.GetValueOrDefault("title", Title)?.ToString() ?? Title;
+            var description = data.GetValueOrDefault("description", Description)?.ToString() ?? Description;
+            var status = data.GetValueOrDefault("status", Status)?.ToString() ?? Status;
+            var isAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", IsAnonymous));
+            var imageUrl1 = data.GetValueOrDefault("imagemUrls", ImageUrl1)?.ToString() ?? ImageUrl1;
+            var updatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
+            var resolvedAt = ParseDateNullable(data.GetValueOrDefault("resolvedAt"));
+
+            Validate(userId, category, title, description, status);
+
             UserId = userId;
-            Category = data.GetValueOrDefault("category", Category)?.ToString() ?? Category;
-            Title = data.GetValueOrDefault("title", Title)?.ToString() ?? Title;
-            Description = data.GetValueOrDefault("description", Description)?.ToString() ?? Description;
-            Status = data.GetValueOrDefault("status", Status)?.ToString() ?? Status;
-            IsAnonymous = Convert.ToBoolean(data.GetValueOrDefault("isAnonymous", IsAnonymous));
-            ImageUrl1 = data.GetValueOrDefault("imagemUrls", ImageUrl1)?.ToString() ?? ImageUrl1;
-            UpdatedAt = ParseDate(data.GetValueOrDefault("updatedAt"));
-            ResolvedAt = ParseDateNullable(data.GetValueOrDefault("resolvedAt"));
+            Category = category.Trim();
+            Title = title.Trim();
+            Description = description.Trim();
+            Status = status.Trim().ToLowerInvariant();
+            IsAnonymous = isAnonymous;
+            ImageUrl1 = imageUrl1;
+            UpdatedAt = updatedAt;
+            ResolvedAt = resolvedAt;
 
             if (data.TryGetValue("location", out var locationObj) && locationObj is Dictionary<string, object> loc)
             {
@@ -141,47 +141,37 @@ namespace CidadeIntegra.Domain.Entities
                 Location.Longitude = Convert.ToDecimal(loc.GetValueOrDefault("longitude", Location.Longitude));
                 Location.PostalCode = loc.GetValueOrDefault("postalCode", Location.PostalCode)?.ToString() ?? Location.PostalCode;
             }
-
-            Validate();
         }
         #endregion
 
-        #region Validation
-        public void Validate()
+        #region Validação
+        private void Validate(Guid userId, string category, string title, string description, string status)
         {
-            if (UserId == Guid.Empty)
-                throw new ValidationException("UserId must be provided.");
+            DomainExceptionValidation.When(userId == Guid.Empty, "UserId must be provided.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(category), "Category is required.");
+            DomainExceptionValidation.When(category.Length > 50, "Category length cannot exceed 50 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(title), "Title is required.");
+            DomainExceptionValidation.When(title.Length > 120, "Title length cannot exceed 120 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(description), "Description is required.");
+            DomainExceptionValidation.When(description.Length > 2000, "Description length cannot exceed 2000 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(status), "Status is required.");
+            DomainExceptionValidation.When(!IsValidStatus(status), $"Invalid status '{status}'.");
+        }
 
-            if (string.IsNullOrWhiteSpace(Title))
-                throw new ValidationException("Title is required.");
-
-            if (string.IsNullOrWhiteSpace(Description))
-                throw new ValidationException("Description is required.");
-
-            if (string.IsNullOrWhiteSpace(Category))
-                throw new ValidationException("Category is required.");
-
-            if (!IsValidStatus(Status))
-                throw new ValidationException($"Invalid status '{Status}'.");
-
+        public void ValidateResolvedAt()
+        {
             if (ResolvedAt.HasValue && ResolvedAt < CreatedAt)
                 throw new ValidationException("ResolvedAt cannot be before CreatedAt.");
-
-            if (CreatedAt == default)
-                CreatedAt = DateTimeOffset.UtcNow;
-
-            if (UpdatedAt == default)
-                UpdatedAt = DateTimeOffset.UtcNow;
         }
 
         private static bool IsValidStatus(string status)
         {
-            string[] validStatuses = { "pending", "in_progress", "resolved", "rejected" };
+            string[] validStatuses = { "pending", "review", "in progress", "resolved", "rejected" };
             return validStatuses.Contains(status?.Trim().ToLowerInvariant());
         }
         #endregion
 
-        #region HELPERS
+        #region Helpers
         private static DateTimeOffset ParseDate(object? dateObj)
         {
             if (dateObj is Timestamp ts)

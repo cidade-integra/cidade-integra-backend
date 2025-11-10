@@ -8,7 +8,7 @@ namespace CidadeIntegra.Domain.Entities
     [Table("Comments")]
     public class Comment
     {
-        #region Propriedades
+        #region Atributos
         [Key]
         public Guid Id { get; private set; }
 
@@ -27,10 +27,8 @@ namespace CidadeIntegra.Domain.Entities
         [Required, MaxLength(50)]
         public string Role { get; private set; } = string.Empty;
 
-        public DateTimeOffset CreatedAt { get; set; }
-        #endregion
+        public DateTimeOffset CreatedAt { get; private set; }
 
-        #region Navegações
         public Report Report { get; private set; } = null!;
         public User Author { get; private set; } = null!;
         #endregion
@@ -38,27 +36,32 @@ namespace CidadeIntegra.Domain.Entities
         #region Construtores
         protected Comment() { } // EF
 
-        public Comment(Guid reportId, Guid authorId, string avatarColor, string message, string role)
+        private Comment(Guid id, Guid reportId, Guid authorId, string avatarColor, string message, string role, DateTimeOffset createdAt)
         {
-            DomainExceptionValidation.When(reportId == Guid.Empty, "Invalid ReportId.");
-            DomainExceptionValidation.When(authorId == Guid.Empty, "Invalid AuthorId.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(message), "Message cannot be empty.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(role), "Role cannot be empty.");
-            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(avatarColor), "AvatarColor cannot be empty.");
-            DomainExceptionValidation.When(message.Length > 500, "Message length cannot exceed 500 characters.");
-            DomainExceptionValidation.When(role.Length > 50, "Role length cannot exceed 50 characters.");
-            DomainExceptionValidation.When(avatarColor.Length > 50, "AvatarColor length cannot exceed 50 characters.");
+            ValidateParameters(id, reportId, authorId, avatarColor, message, role, createdAt);
 
-
-            Id = Guid.NewGuid();
+            Id = id;
             ReportId = reportId;
             AuthorId = authorId;
-            AvatarColor = avatarColor;
-            Message = message;
-            Role = role;
-            CreatedAt = DateTimeOffset.UtcNow;
+            AvatarColor = avatarColor.Trim();
+            Message = message.Trim();
+            Role = role.Trim();
+            CreatedAt = createdAt;
+        }
+        #endregion
 
-            Validate();
+        #region Fábrica
+        public static Comment Create(Guid reportId, Guid authorId, string avatarColor, string message, string role)
+        {
+            return new Comment(
+                Guid.NewGuid(),
+                reportId,
+                authorId,
+                avatarColor,
+                message,
+                role,
+                DateTimeOffset.UtcNow
+            );
         }
         #endregion
 
@@ -67,7 +70,7 @@ namespace CidadeIntegra.Domain.Entities
         {
             var data = doc.ToDictionary();
 
-            // Resolve o AuthorId usando o FirebaseId do autor
+            // resolve o AuthorId usando o FirebaseId do autor
             Guid authorId = Guid.Empty;
             var authorFirebaseId = data.GetValueOrDefault("authorId")?.ToString();
             if (authorFirebaseId != null && userMap.TryGetValue(authorFirebaseId, out var mappedUserId))
@@ -75,44 +78,49 @@ namespace CidadeIntegra.Domain.Entities
                 authorId = mappedUserId;
             }
 
-            return new Comment
-            {
-                Id = Guid.NewGuid(),
-                ReportId = reportId,
-                AuthorId = authorId,
-                AvatarColor = data.GetValueOrDefault("avatarColor", string.Empty)?.ToString() ?? string.Empty,
-                Message = data.GetValueOrDefault("message", string.Empty)?.ToString() ?? string.Empty,
-                Role = data.GetValueOrDefault("role", string.Empty)?.ToString() ?? string.Empty,
-                CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"))
-            };
+            return new Comment(
+                Guid.NewGuid(),
+                reportId,
+                authorId,
+                data.GetValueOrDefault("avatarColor", string.Empty)?.ToString() ?? string.Empty,
+                data.GetValueOrDefault("message", string.Empty)?.ToString() ?? string.Empty,
+                data.GetValueOrDefault("role", string.Empty)?.ToString() ?? string.Empty,
+                ParseDate(data.GetValueOrDefault("createdAt"))
+            );
         }
 
         public void UpdateFromFirestore(DocumentSnapshot doc, Dictionary<string, Guid> userMap)
         {
             var data = doc.ToDictionary();
 
-            // Atualiza o AuthorId se possível
             var authorFirebaseId = data.GetValueOrDefault("authorId")?.ToString();
             if (authorFirebaseId != null && userMap.TryGetValue(authorFirebaseId, out var mappedUserId))
             {
                 AuthorId = mappedUserId;
             }
 
-            AvatarColor = data.GetValueOrDefault("avatarColor", string.Empty)?.ToString() ?? AvatarColor;
-            Message = data.GetValueOrDefault("message", string.Empty)?.ToString() ?? Message;
-            Role = data.GetValueOrDefault("role", string.Empty)?.ToString() ?? Role;
+            AvatarColor = data.GetValueOrDefault("avatarColor", AvatarColor)?.ToString() ?? AvatarColor;
+            Message = data.GetValueOrDefault("message", Message)?.ToString() ?? Message;
+            Role = data.GetValueOrDefault("role", Role)?.ToString() ?? Role;
             CreatedAt = ParseDate(data.GetValueOrDefault("createdAt"));
+
+            ValidateParameters(Id, ReportId, AuthorId, AvatarColor, Message, Role, CreatedAt);
         }
         #endregion
 
         #region Validação
-        public void Validate()
+        private void ValidateParameters(Guid id, Guid reportId, Guid authorId, string avatarColor, string message, string role, DateTimeOffset createdAt)
         {
-            var context = new ValidationContext(this);
-            Validator.ValidateObject(this, context, validateAllProperties: true);
-
-            if (CreatedAt > DateTimeOffset.UtcNow.AddMinutes(5))
-                throw new ValidationException("CreatedAt cannot be a future date.");
+            DomainExceptionValidation.When(id == Guid.Empty, "Id cannot be empty.");
+            DomainExceptionValidation.When(reportId == Guid.Empty, "ReportId cannot be empty.");
+            DomainExceptionValidation.When(authorId == Guid.Empty, "AuthorId cannot be empty.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(avatarColor), "AvatarColor is required.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(message), "Message is required.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(role), "Role is required.");
+            DomainExceptionValidation.When(avatarColor.Length > 50, "AvatarColor length cannot exceed 50 characters.");
+            DomainExceptionValidation.When(message.Length > 500, "Message length cannot exceed 500 characters.");
+            DomainExceptionValidation.When(role.Length > 50, "Role length cannot exceed 50 characters.");
+            DomainExceptionValidation.When(createdAt > DateTimeOffset.UtcNow.AddMinutes(5), "CreatedAt cannot be a future date.");
         }
         #endregion
 

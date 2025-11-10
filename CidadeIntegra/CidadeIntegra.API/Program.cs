@@ -91,21 +91,23 @@ namespace CidadeIntegra.API
             builder.Configuration.AddEnvironmentVariables();
             Env.Load();
 
-#if DEBUG
-            var testKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
-            if (string.IsNullOrEmpty(testKey))
-                Console.ForegroundColor = ConsoleColor.Red;
-            else
-                Console.ForegroundColor = ConsoleColor.Green;
+            #if DEBUG
+                var testKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
+                if (string.IsNullOrEmpty(testKey))
+                    Console.ForegroundColor = ConsoleColor.Red;
+                else
+                    Console.ForegroundColor = ConsoleColor.Green;
 
-            Console.WriteLine($"MIGRATION_API_KEY: {(string.IsNullOrEmpty(testKey) ? "não encontrada" : "carregada com sucesso")}");
-            Console.ResetColor();
-#endif
+                Console.WriteLine($"MIGRATION_API_KEY: {(string.IsNullOrEmpty(testKey) ? "não encontrada" : "carregada com sucesso")}");
+                Console.ResetColor();
+            #endif
 
             #endregion
 
+            #region Configuração IoC
             // Add services to the container.
             builder.Services.AddInfrastructureAPI(builder.Configuration);
+            #endregion
 
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using CidadeIntegra.Domain.Validation;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CidadeIntegra.Domain.Entities
@@ -6,12 +7,10 @@ namespace CidadeIntegra.Domain.Entities
     [Table("Logs")]
     public class Log
     {
-        #region Identificação
+        #region Atributos
         [Key]
-        public Guid Id { get; set; } = Guid.NewGuid();
-        #endregion
+        public Guid Id { get; set; }
 
-        #region Informações
         [Required, MaxLength(50)]
         public string Level { get; set; } = string.Empty;
 
@@ -19,49 +18,47 @@ namespace CidadeIntegra.Domain.Entities
         public string Message { get; set; } = string.Empty;
 
         public string? Exception { get; set; }
+
+        public DateTimeOffset TimeStamp { get; set; }
         #endregion
 
-        #region Datas
-        public DateTimeOffset TimeStamp { get; set; } = DateTimeOffset.UtcNow;
-        #endregion
+        #region Construtor
+        public Log() { } // EF
 
-        #region Métodos Auxiliares
-        public static Log Create(string level, string message, string? exception = null)
+        public Log(Guid id, string level, string message, string? exception, DateTimeOffset timestamp)
         {
-            var log = new Log
-            {
-                Id = Guid.NewGuid(),
-                Level = level,
-                Message = message,
-                Exception = exception,
-                TimeStamp = DateTimeOffset.UtcNow
-            };
+            ValidateParameters(id, level, message, timestamp);
 
-            log.Validate();
-            return log;
+            Id = id;
+            Level = level.Trim();
+            Message = message.Trim();
+            Exception = exception?.Trim();
+            TimeStamp = timestamp;
         }
         #endregion
 
-        #region Validation
-        public void Validate()
+        #region Fábrica
+        public static Log Create(string level, string message, string? exception = null)
         {
-            if (Id == Guid.Empty)
-                throw new ValidationException("Id cannot be empty.");
+            return new Log(
+                Guid.NewGuid(),
+                level,
+                message,
+                exception,
+                DateTimeOffset.UtcNow
+            );
+        }
+        #endregion
 
-            if (string.IsNullOrWhiteSpace(Level))
-                throw new ValidationException("Level is required.");
-
-            if (string.IsNullOrWhiteSpace(Message))
-                throw new ValidationException("Message is required.");
-
-            if (Level.Length > 50)
-                throw new ValidationException("Level exceeds maximum length of 50 characters.");
-
-            if (Message.Length > 2000)
-                throw new ValidationException("Message exceeds maximum length of 2000 characters.");
-
-            if (TimeStamp == default)
-                throw new ValidationException("Timestamp must be set.");
+        #region Validação
+        private void ValidateParameters(Guid id, string level, string message, DateTimeOffset timestamp)
+        {
+            DomainExceptionValidation.When(id == Guid.Empty, "Id cannot be empty.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(level), "Level is required.");
+            DomainExceptionValidation.When(level.Length > 50, "Level exceeds maximum length of 50 characters.");
+            DomainExceptionValidation.When(string.IsNullOrWhiteSpace(message), "Message is required.");
+            DomainExceptionValidation.When(message.Length > 2000, "Message exceeds maximum length of 2000 characters.");
+            DomainExceptionValidation.When(timestamp == default, "Timestamp must be set.");
         }
         #endregion
     }
