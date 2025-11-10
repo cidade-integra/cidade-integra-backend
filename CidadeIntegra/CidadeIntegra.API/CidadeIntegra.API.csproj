@@ -7,11 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CidadeIntegra.Application\CidadeIntegra.Application.csproj" />
+    <ProjectReference Include="..\CidadeIntegra.Infra.IoC\CidadeIntegra.Infra.IoC.csproj" />
   </ItemGroup>
 
 </Project>

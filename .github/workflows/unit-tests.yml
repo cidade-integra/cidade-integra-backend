@@ -1,0 +1,39 @@
+name: Unit Tests Passed?
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Setup .NET
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      # Step 3: Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./CidadeIntegra
+
+      # Step 4: Build project
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: ./CidadeIntegra
+
+      # Step 5: Run unit tests
+      - name: Run unit tests
+        run: dotnet test --no-build --verbosity normal --configuration Release
+        working-directory: ./CidadeIntegra
