@@ -1,6 +1,5 @@
-name: passou nos testes unitários?
+name: Unit Tests Passed?
 
-# observa eventos na branch main
 on:
   push:
     branches:
@@ -14,28 +13,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Passo 1: clonar o repositório
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Passo 2: configurar .NET
+      # Step 2: Setup .NET
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '6.0.x'
-        working-directory: ./CidadeIntegra
 
-      # Passo 3: restaurar pacotes
+      # Step 3: Restore dependencies
       - name: Restore dependencies
         run: dotnet restore
         working-directory: ./CidadeIntegra
 
-      # Passo 4: build do projeto
+      # Step 4: Build project
       - name: Build
         run: dotnet build --no-restore --configuration Release
         working-directory: ./CidadeIntegra
 
-      # Passo 5: executar testes
+      # Step 5: Run unit tests
       - name: Run unit tests
         run: dotnet test --no-build --verbosity normal --configuration Release
         working-directory: ./CidadeIntegra
