@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      - SA_PASSWORD=Your_password123
+      - ACCEPT_EULA=Y
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - cidadeintegra-network
+
+  api:
+    build:
+      context: ../CidadeIntegra.API
+      dockerfile: ../../docker/api/Dockerfile
+    container_name: cidadeintegra-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=CidadeIntegraDb;User=sa;Password=Your_password123;
+      - API_KEY=${API_KEY}
+    ports:
+      - "8080:80"
+    depends_on:
+      - sqlserver
+    networks:
+      - cidadeintegra-network
+
+volumes:
+  sql_data:
+
+networks:
+  cidadeintegra-network:
+    driver: bridge
