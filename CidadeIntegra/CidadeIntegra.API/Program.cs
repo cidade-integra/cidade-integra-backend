@@ -1,7 +1,6 @@
 using CidadeIntegra.API.Middlewares;
 using CidadeIntegra.Infra.Data.Firebase;
 using CidadeIntegra.Infra.IoC;
-using DotNetEnv;
 using Google.Cloud.Firestore;
 using Microsoft.OpenApi.Models;
 
@@ -13,44 +12,79 @@ namespace CidadeIntegra.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            #region Configurações Firebase
-            // Configurações do Firebase (appsettings.json)
-            var projectId = builder.Configuration["Firebase:ProjectId"];
-            var serviceAccountPath = builder.Configuration["Firebase:ServiceAccountPath"];
+            #region ConfiguraÃ§Ãµes Firebase
 
-            // Inicializa conexão com Firestore
-            FirestoreDb firestore = FirebaseInitializer.InitializeFirestore(projectId, serviceAccountPath);
+            // LÃª valores do ambiente (GitHub Actions, Docker ou local)
+            var firebaseProjectId = Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID");
+            var firebaseKeyJson = Environment.GetEnvironmentVariable("FIREBASE_KEY_JSON");
 
-            // Injeta Firestore no container de dependência
-            builder.Services.AddSingleton(firestore);
+            string tempServiceAccountPath = null!;
+
+            try
+            {
+                // Cria arquivo temporÃ¡rio com as credenciais se a variÃ¡vel existir
+                if (!string.IsNullOrEmpty(firebaseKeyJson))
+                {
+                    tempServiceAccountPath = Path.Combine(Path.GetTempPath(), "firebase-key.json");
+                    File.WriteAllText(tempServiceAccountPath, firebaseKeyJson);
+
+                    if (!File.Exists(tempServiceAccountPath))
+                        throw new FileNotFoundException("O arquivo de credenciais Firebase nÃ£o pÃ´de ser criado.");
+
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Firebase credentials created at {tempServiceAccountPath}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    throw new InvalidOperationException("VariÃ¡vel de ambiente FIREBASE_KEY_JSON nÃ£o encontrada.");
+                }
+
+                if (string.IsNullOrEmpty(firebaseProjectId))
+                    throw new InvalidOperationException("VariÃ¡vel de ambiente FIREBASE_PROJECT_ID nÃ£o encontrada.");
+
+                FirestoreDb firestore = FirebaseInitializer.InitializeFirestore(firebaseProjectId, tempServiceAccountPath);
+
+                // injeta Firestore no container de dependÃªncia
+                builder.Services.AddSingleton(firestore);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Erro ao inicializar Firebase: {ex.Message}");
+                Console.ResetColor();
+
+                throw;
+            }
+
             #endregion
 
-            #region Configurações Swagger
-            // configura o Swagger para documentação e testes da API
+            #region Configuracoes Swagger
+            // configura o Swagger para documentaï¿½ï¿½o e testes da API
             builder.Services.AddEndpointsApiExplorer();
 
             builder.Services.AddSwaggerGen(c =>
             {
-                // define informações básicas da API
+                // define informaï¿½ï¿½es bï¿½sicas da API
                 c.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "Cidade Integra API",
                     Version = "v1",
-                    Description = "API para migração de dados do Firestore para SQL Server"
+                    Description = "API para migraï¿½ï¿½o de dados do Firestore para SQL Server"
                 });
 
-                // adiciona suporte a autenticação via API Key
+                // adiciona suporte a autenticaï¿½ï¿½o via API Key
                 c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
                 {
-                    Description = "Chave de autenticação necessária para acessar endpoints protegidos.\n" +
+                    Description = "Chave de autenticaï¿½ï¿½o necessï¿½ria para acessar endpoints protegidos.\n" +
                                   "Insira no header: 'x-api-key'.",
                     Name = "x-api-key",              // nome do header
                     In = ParameterLocation.Header,    // local de envio do header
-                    Type = SecuritySchemeType.ApiKey, // tipo de autenticação
+                    Type = SecuritySchemeType.ApiKey, // tipo de autenticaï¿½ï¿½o
                     Scheme = "ApiKeyScheme"
                 });
 
-                // aplica a exigência da API key globalmente em todos os endpoints
+                // aplica a exigï¿½ncia da API key globalmente em todos os endpoints
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -68,7 +102,7 @@ namespace CidadeIntegra.API
             });
             #endregion
 
-            #region Configuração CORS
+            #region Configuracao CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("OpenCors", policy =>
@@ -80,31 +114,33 @@ namespace CidadeIntegra.API
             });
             #endregion
 
-            #region Configuração Logging Global
-            builder.Logging.ClearProviders(); // Remove qualquer configuração padrão de log
+            #region Configuraï¿½ï¿½o Logging Global
+            builder.Logging.ClearProviders(); // Remove qualquer configuraï¿½ï¿½o padrï¿½o de log
             builder.Logging.AddConsole(); // Envia todos os logs para o console
             builder.Logging.AddDebug(); // Envia logs para o Visual Studio Debug Output
-            builder.Logging.SetMinimumLevel(LogLevel.Information); // Define o nível mínimo de log a ser registrado
+            builder.Logging.SetMinimumLevel(LogLevel.Information); // Define o nï¿½vel mï¿½nimo de log a ser registrado
             #endregion
 
-            #region Configuração Variáveis de Ambiente
-            builder.Configuration.AddEnvironmentVariables();
-            Env.Load();
+            #region ConfiguraÃ§Ã£o MIGRATION_API_KEY
 
-            #if DEBUG
-                var testKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
-                if (string.IsNullOrEmpty(testKey))
-                    Console.ForegroundColor = ConsoleColor.Red;
-                else
-                    Console.ForegroundColor = ConsoleColor.Green;
+            var migrationApiKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
 
-                Console.WriteLine($"MIGRATION_API_KEY: {(string.IsNullOrEmpty(testKey) ? "não encontrada" : "carregada com sucesso")}");
+            if (string.IsNullOrEmpty(migrationApiKey))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("MIGRATION_API_KEY not found in environment variables!");
                 Console.ResetColor();
-            #endif
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("MIGRATION_API_KEY loaded successfully");
+                Console.ResetColor();
+            }
 
             #endregion
 
-            #region Configuração IoC
+            #region Configuraï¿½ï¿½o IoC
             // Add services to the container.
             builder.Services.AddInfrastructureAPI(builder.Configuration);
             #endregion
@@ -116,20 +152,20 @@ namespace CidadeIntegra.API
 
             var app = builder.Build();
 
-            #region Configuração Pipeline Swagger
-            // Configuração do pipeline de requisição
+            #region Configuraï¿½ï¿½o Pipeline Swagger
+            // Configuraï¿½ï¿½o do pipeline de requisiï¿½ï¿½o
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
-                    // Título e endpoint da documentação
+                    // Tï¿½tulo e endpoint da documentaï¿½ï¿½o
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cidade Integra API v1");
                 });
             }
             #endregion
 
-            #region Configuração Middleware
+            #region Configuraï¿½ï¿½o Middleware
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             #endregion
 
