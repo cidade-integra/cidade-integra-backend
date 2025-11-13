@@ -1,4 +1,5 @@
 using CidadeIntegra.API.Middlewares;
+using CidadeIntegra.API.Options;
 using CidadeIntegra.Infra.Data.Firebase;
 using CidadeIntegra.Infra.IoC;
 using Google.Cloud.Firestore;
@@ -123,20 +124,23 @@ namespace CidadeIntegra.API
 
             #region Configuração MIGRATION_API_KEY
 
-            var migrationApiKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
+            builder.Services.Configure<MigrationOptions>(options =>
+            {
+                options.ApiKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY") ?? string.Empty;
+            });
 
-            if (string.IsNullOrEmpty(migrationApiKey))
+            var apiKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
+            if (string.IsNullOrEmpty(apiKey))
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("MIGRATION_API_KEY not found in environment variables!");
-                Console.ResetColor();
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("MIGRATION_API_KEY loaded successfully");
-                Console.ResetColor();
+                Console.WriteLine("MIGRATION_API_KEY loaded successfully.");
             }
+            Console.ResetColor();
 
             #endregion
 
