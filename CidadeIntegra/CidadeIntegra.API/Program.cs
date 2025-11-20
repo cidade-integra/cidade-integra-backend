@@ -4,6 +4,7 @@ using CidadeIntegra.Infra.IoC;
 using DotNetEnv;
 using Google.Cloud.Firestore;
 using Microsoft.OpenApi.Models;
+using Prometheus;
 
 namespace CidadeIntegra.API
 {
@@ -113,10 +114,19 @@ namespace CidadeIntegra.API
             builder.Services.AddInfrastructureAPI(builder.Configuration);
             #endregion
 
+            #region Configuração Prometheus
+            builder.Services.AddHealthChecks();
+            #endregion
+
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            #region Escutar interfaces na porta 80
+            builder.WebHost.ConfigureKestrel(options =>
+            {
+                options.ListenAnyIP(80); // escuta em todas as interfaces na porta 80
+            });
+            #endregion
 
             var app = builder.Build();
 
@@ -137,11 +147,19 @@ namespace CidadeIntegra.API
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             #endregion
 
-            app.UseHttpsRedirection();
-
             app.UseAuthorization();
 
+            #region Métricas - Prometheus
+            app.UseMetricServer();
+            app.UseHttpMetrics();
+            app.MapMetrics();
+            #endregion
+
             app.MapControllers();
+
+            #region healthcheck
+            app.MapHealthChecks("/health");
+            #endregion
 
             app.Run();
         }
