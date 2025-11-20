@@ -8,22 +8,31 @@ namespace CidadeIntegra.Infra.Data.Firebase
     {
         public static FirestoreDb InitializeFirestore(string projectId, string serviceAccountPath)
         {
-            using var stream = new FileStream(serviceAccountPath, FileMode.Open, FileAccess.Read);
-            var credential = GoogleCredential.FromStream(stream);
-
-            FirebaseApp.Create(new AppOptions
+            try
             {
-                Credential = credential,
-                ProjectId = projectId
-            });
+                using var stream = new FileStream(serviceAccountPath, FileMode.Open, FileAccess.Read);
+                var credential = GoogleCredential.FromStream(stream);
 
-            var firestore = new FirestoreDbBuilder
+                FirebaseApp.Create(new AppOptions
+                {
+                    Credential = credential,
+                    ProjectId = projectId
+                });
+
+                var firestore = new FirestoreDbBuilder
+                {
+                    ProjectId = projectId,
+                    Credential = credential
+
+                }.Build();
+
+                return firestore;
+            }
+            catch (Exception ex)
             {
-                ProjectId = projectId,
-                Credential = credential
-            }.Build();
-
-            return firestore;
+                Console.WriteLine($"Erro Firestore: {ex}");
+                throw;
+            }
         }
     }
 }
