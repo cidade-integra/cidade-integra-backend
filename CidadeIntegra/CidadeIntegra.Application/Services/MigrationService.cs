@@ -32,7 +32,7 @@ namespace CidadeIntegra.Application.Services
             _logger = logger;
 
             var projectId = configuration["Firebase:ProjectId"];
-            var credentialsPath = configuration["Firebase:ServiceAccountPath"];
+            var credentialsPath = Path.Combine(AppContext.BaseDirectory, "firebase-key.json");
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", credentialsPath);
 
             _firestore = FirestoreDb.Create(projectId);

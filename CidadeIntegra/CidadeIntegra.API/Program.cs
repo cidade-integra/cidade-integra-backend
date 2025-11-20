@@ -13,44 +13,65 @@ namespace CidadeIntegra.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            #region Configurações Firebase
-            // Configurações do Firebase (appsettings.json)
-            var projectId = builder.Configuration["Firebase:ProjectId"];
-            var serviceAccountPath = builder.Configuration["Firebase:ServiceAccountPath"];
+            #region Configuraï¿½ï¿½o Variï¿½veis de Ambiente
+            builder.Configuration.AddEnvironmentVariables();
+            Env.Load();
 
-            // Inicializa conexão com Firestore
-            FirestoreDb firestore = FirebaseInitializer.InitializeFirestore(projectId, serviceAccountPath);
+#if DEBUG
+            var testKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
+            if (string.IsNullOrEmpty(testKey))
+                Console.ForegroundColor = ConsoleColor.Red;
+            else
+                Console.ForegroundColor = ConsoleColor.Green;
 
-            // Injeta Firestore no container de dependência
-            builder.Services.AddSingleton(firestore);
+            Console.WriteLine($"MIGRATION_API_KEY: {(string.IsNullOrEmpty(testKey) ? "nï¿½o encontrada" : "carregada com sucesso")}");
+            Console.ResetColor();
+#endif
+
             #endregion
 
-            #region Configurações Swagger
-            // configura o Swagger para documentação e testes da API
+            #region ConfiguraÃ§Ãµes Firebase
+
+            var projectId = builder.Configuration["Firebase:ProjectId"];
+
+            // caminho dinÃ¢mico que funciona no Docker e Windows
+            var serviceAccountPath = Path.Combine(AppContext.BaseDirectory, "firebase-key.json");
+
+            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", serviceAccountPath);
+            
+
+            FirestoreDb firestore = FirebaseInitializer.InitializeFirestore(projectId, serviceAccountPath);
+
+            builder.Services.AddSingleton(firestore);
+
+            #endregion
+
+            #region Configuraï¿½ï¿½es Swagger
+            // configura o Swagger para documentaï¿½ï¿½o e testes da API
             builder.Services.AddEndpointsApiExplorer();
 
             builder.Services.AddSwaggerGen(c =>
             {
-                // define informações básicas da API
+                // define informaï¿½ï¿½es bï¿½sicas da API
                 c.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "Cidade Integra API",
                     Version = "v1",
-                    Description = "API para migração de dados do Firestore para SQL Server"
+                    Description = "API para migraï¿½ï¿½o de dados do Firestore para SQL Server"
                 });
 
-                // adiciona suporte a autenticação via API Key
+                // adiciona suporte a autenticaï¿½ï¿½o via API Key
                 c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
                 {
-                    Description = "Chave de autenticação necessária para acessar endpoints protegidos.\n" +
+                    Description = "Chave de autenticaï¿½ï¿½o necessï¿½ria para acessar endpoints protegidos.\n" +
                                   "Insira no header: 'x-api-key'.",
                     Name = "x-api-key",              // nome do header
                     In = ParameterLocation.Header,    // local de envio do header
-                    Type = SecuritySchemeType.ApiKey, // tipo de autenticação
+                    Type = SecuritySchemeType.ApiKey, // tipo de autenticaï¿½ï¿½o
                     Scheme = "ApiKeyScheme"
                 });
 
-                // aplica a exigência da API key globalmente em todos os endpoints
+                // aplica a exigï¿½ncia da API key globalmente em todos os endpoints
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
@@ -68,7 +89,7 @@ namespace CidadeIntegra.API
             });
             #endregion
 
-            #region Configuração CORS
+            #region Configuraï¿½ï¿½o CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("OpenCors", policy =>
@@ -80,31 +101,14 @@ namespace CidadeIntegra.API
             });
             #endregion
 
-            #region Configuração Logging Global
-            builder.Logging.ClearProviders(); // Remove qualquer configuração padrão de log
+            #region Configuraï¿½ï¿½o Logging Global
+            builder.Logging.ClearProviders(); // Remove qualquer configuraï¿½ï¿½o padrï¿½o de log
             builder.Logging.AddConsole(); // Envia todos os logs para o console
             builder.Logging.AddDebug(); // Envia logs para o Visual Studio Debug Output
-            builder.Logging.SetMinimumLevel(LogLevel.Information); // Define o nível mínimo de log a ser registrado
+            builder.Logging.SetMinimumLevel(LogLevel.Information); // Define o nï¿½vel mï¿½nimo de log a ser registrado
             #endregion
 
-            #region Configuração Variáveis de Ambiente
-            builder.Configuration.AddEnvironmentVariables();
-            Env.Load();
-
-            #if DEBUG
-                var testKey = Environment.GetEnvironmentVariable("MIGRATION_API_KEY");
-                if (string.IsNullOrEmpty(testKey))
-                    Console.ForegroundColor = ConsoleColor.Red;
-                else
-                    Console.ForegroundColor = ConsoleColor.Green;
-
-                Console.WriteLine($"MIGRATION_API_KEY: {(string.IsNullOrEmpty(testKey) ? "não encontrada" : "carregada com sucesso")}");
-                Console.ResetColor();
-            #endif
-
-            #endregion
-
-            #region Configuração IoC
+            #region Configuraï¿½ï¿½o IoC
             // Add services to the container.
             builder.Services.AddInfrastructureAPI(builder.Configuration);
             #endregion
@@ -116,20 +120,20 @@ namespace CidadeIntegra.API
 
             var app = builder.Build();
 
-            #region Configuração Pipeline Swagger
-            // Configuração do pipeline de requisição
+            #region Configuraï¿½ï¿½o Pipeline Swagger
+            // Configuraï¿½ï¿½o do pipeline de requisiï¿½ï¿½o
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
-                    // Título e endpoint da documentação
+                    // Tï¿½tulo e endpoint da documentaï¿½ï¿½o
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Cidade Integra API v1");
                 });
             }
             #endregion
 
-            #region Configuração Middleware
+            #region Configuraï¿½ï¿½o Middleware
             app.UseMiddleware<ExceptionHandlingMiddleware>();
             #endregion
 

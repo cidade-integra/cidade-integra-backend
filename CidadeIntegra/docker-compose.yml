@@ -1,0 +1,39 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Express
+      - SA_PASSWORD=UndY|n3vc^56
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - cidadeintegra-network
+
+  api:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: cidadeintegra-api
+    environment:
+      - CONNECTION_STRING=${CONNECTION_STRING}
+      - MIGRATION_API_KEY=${MIGRATION_API_KEY}
+      - FIREBASE_ID=${FIREBASE_ID}
+      - FIREBASE_KEY_PATH=${FIREBASE_KEY_PATH}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+    ports:
+      - "8080:80"
+    depends_on:
+      - sqlserver
+    networks:
+      - cidadeintegra-network
+
+volumes:
+  sql_data:
+
+networks:
+  cidadeintegra-network:
+    driver: bridge

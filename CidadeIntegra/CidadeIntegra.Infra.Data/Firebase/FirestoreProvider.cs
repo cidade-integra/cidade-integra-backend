@@ -11,7 +11,7 @@ namespace CidadeIntegra.Infra.Data.Firebase
         public FirestoreProvider(IConfiguration configuration)
         {
             var projectId = configuration["Firebase:ProjectId"];
-            var serviceAccountPath = configuration["Firebase:ServiceAccountPath"];
+            var serviceAccountPath = Path.Combine(AppContext.BaseDirectory, "firebase-key.json");
 
             _firestore = FirebaseInitializer.InitializeFirestore(projectId, serviceAccountPath);
         }
